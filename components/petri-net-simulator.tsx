@@ -1,8 +1,8 @@
-"use client"
+'use client'
 
-import type React from "react"
+import type React from 'react'
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -12,9 +12,10 @@ import {
   type EdgeTypes,
   type OnInit,
   Panel,
-} from "@xyflow/react"
-import "@xyflow/react/dist/style.css"
-import { Button } from "@/components/ui/button"
+  MarkerType,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { Button } from '@/components/ui/button'
 import {
   CircleIcon,
   SquareIcon,
@@ -25,17 +26,17 @@ import {
   DownloadIcon,
   UploadIcon,
   ClockIcon,
-} from "lucide-react"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useToast } from "@/hooks/use-toast"
-import PositionNode from "./nodes/position-node"
-import TransitionNode from "./nodes/transition-node"
-import PetriEdge from "./edges/petri-edge"
-import NodeEditContent from "./node-edit-content"
-import EdgeEditContent from "./edge-edit-content"
-import { usePetriNet } from "@/hooks/use-petri-net"
+} from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useToast } from '@/hooks/use-toast'
+import PositionNode from './nodes/position-node'
+import TransitionNode from './nodes/transition-node'
+import PetriEdge from './edges/petri-edge'
+import NodeEditContent from './node-edit-content'
+import EdgeEditContent from './edge-edit-content'
+import { usePetriNet } from '@/hooks/use-petri-net'
 
 export default function PetriNetSimulator() {
   const { toast } = useToast()
@@ -61,19 +62,23 @@ export default function PetriNetSimulator() {
 
   // Define node types with proper typing and pass showLabels and showNumbers
   const nodeTypes: NodeTypes = {
-    position: (props) => <PositionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />,
-    transition: (props) => <TransitionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />,
+    position: props => (
+      <PositionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
+    ),
+    transition: props => (
+      <TransitionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
+    ),
   }
 
   // Define edge types with proper typing and pass showLabels
   const edgeTypes: EdgeTypes = {
-    petri: (props) => <PetriEdge {...props} showLabels={showLabels} />,
+    petri: props => <PetriEdge {...props} showLabels={showLabels} />,
   }
 
   // Handle drag over for drag and drop from toolbar
   function onDragOver(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault()
-    event.dataTransfer.dropEffect = "move"
+    event.dataTransfer.dropEffect = 'move'
   }
 
   // Handle drop for drag and drop from toolbar
@@ -83,10 +88,10 @@ export default function PetriNetSimulator() {
     if (!reactFlowWrapper.current || !reactFlowInstance) return
 
     const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect()
-    const type = event.dataTransfer.getData("application/reactflow")
+    const type = event.dataTransfer.getData('application/reactflow')
 
     // Check if the dropped element is valid
-    if (!type || (type !== "position" && type !== "transition")) return
+    if (!type || (type !== 'position' && type !== 'transition')) return
 
     const position = reactFlowInstance.screenToFlowPosition({
       x: event.clientX - reactFlowBounds.left,
@@ -94,7 +99,7 @@ export default function PetriNetSimulator() {
     })
 
     // Создаем новый узел через хук
-    petriNet.createNode(type as "position" | "transition", position)
+    petriNet.createNode(type as 'position' | 'transition', position)
   }
 
   // Handle node right click to open edit popover
@@ -119,27 +124,27 @@ export default function PetriNetSimulator() {
 
   // Handle keyboard events for deleting selected elements
   function onKeyDown(event: KeyboardEvent) {
-    if (event.key === "Delete") {
+    if (event.key === 'Delete') {
       // Find selected nodes
-      const selectedNodes = petriNet.nodes.filter((node) => node.selected)
+      const selectedNodes = petriNet.nodes.filter(node => node.selected)
       if (selectedNodes.length > 0) {
-        selectedNodes.forEach((node) => petriNet.deleteNode(node.id))
+        selectedNodes.forEach(node => petriNet.deleteNode(node.id))
         return
       }
 
       // Find selected edges
-      const selectedEdges = petriNet.edges.filter((edge) => edge.selected)
+      const selectedEdges = petriNet.edges.filter(edge => edge.selected)
       if (selectedEdges.length > 0) {
-        selectedEdges.forEach((edge) => petriNet.deleteEdge(edge.id))
+        selectedEdges.forEach(edge => petriNet.deleteEdge(edge.id))
       }
     }
   }
 
   // Add keyboard event listener
   useEffect(() => {
-    document.addEventListener("keydown", onKeyDown)
+    document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener("keydown", onKeyDown)
+      document.removeEventListener('keydown', onKeyDown)
     }
   }, [petriNet.nodes, petriNet.edges])
 
@@ -150,20 +155,20 @@ export default function PetriNetSimulator() {
       petriNet.startTransition(id)
     }
 
-    document.addEventListener("transitionfire", handleTransitionFire as EventListener)
+    document.addEventListener('transitionfire', handleTransitionFire as EventListener)
     return () => {
-      document.removeEventListener("transitionfire", handleTransitionFire as EventListener)
+      document.removeEventListener('transitionfire', handleTransitionFire as EventListener)
     }
   }, [petriNet])
 
   // Handle drag start for toolbar items
   function onDragStart(event: React.DragEvent<HTMLButtonElement>, nodeType: string) {
-    event.dataTransfer.setData("application/reactflow", nodeType)
-    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData('application/reactflow', nodeType)
+    event.dataTransfer.effectAllowed = 'move'
   }
 
   // Handle ReactFlow initialization
-  const onInit: OnInit = (instance) => {
+  const onInit: OnInit = instance => {
     setReactFlowInstance(instance)
   }
 
@@ -171,26 +176,26 @@ export default function PetriNetSimulator() {
   function handleExport() {
     try {
       const modelJson = petriNet.exportModel()
-      const blob = new Blob([modelJson], { type: "application/json" })
+      const blob = new Blob([modelJson], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
 
-      const link = document.createElement("a")
+      const link = document.createElement('a')
       link.href = url
-      link.download = "petri-net-model.json"
+      link.download = 'petri-net-model.json'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
       toast({
-        title: "Model exported",
-        description: "Your Petri net model has been exported as JSON.",
+        title: 'Model exported',
+        description: 'Your Petri net model has been exported as JSON.',
       })
     } catch (error) {
-      console.error("Export failed:", error)
+      console.error('Export failed:', error)
       toast({
-        title: "Export failed",
-        description: "There was an error exporting your model.",
-        variant: "destructive",
+        title: 'Export failed',
+        description: 'There was an error exporting your model.',
+        variant: 'destructive',
       })
     }
   }
@@ -208,36 +213,36 @@ export default function PetriNetSimulator() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
         const content = e.target?.result as string
         const success = petriNet.importModel(content)
 
         if (success) {
           toast({
-            title: "Model imported",
-            description: "Your Petri net model has been successfully imported.",
+            title: 'Model imported',
+            description: 'Your Petri net model has been successfully imported.',
           })
         } else {
           toast({
-            title: "Import failed",
-            description: "The selected file is not a valid Petri net model.",
-            variant: "destructive",
+            title: 'Import failed',
+            description: 'The selected file is not a valid Petri net model.',
+            variant: 'destructive',
           })
         }
       } catch (error) {
-        console.error("Import failed:", error)
+        console.error('Import failed:', error)
         toast({
-          title: "Import failed",
-          description: "The selected file is not a valid Petri net model.",
-          variant: "destructive",
+          title: 'Import failed',
+          description: 'The selected file is not a valid Petri net model.',
+          variant: 'destructive',
         })
       }
     }
     reader.readAsText(file)
 
     // Reset the input so the same file can be selected again
-    event.target.value = ""
+    event.target.value = ''
   }
 
   // Handle save initial state
@@ -245,8 +250,8 @@ export default function PetriNetSimulator() {
     const success = petriNet.saveInitialState()
     if (success) {
       toast({
-        title: "Initial state saved",
-        description: "You can now restore to this state at any time.",
+        title: 'Initial state saved',
+        description: 'You can now restore to this state at any time.',
       })
     }
   }
@@ -256,8 +261,8 @@ export default function PetriNetSimulator() {
     const success = petriNet.resetToInitialState()
     if (success) {
       toast({
-        title: "Initial state restored",
-        description: "The model has been reset to the saved state.",
+        title: 'Initial state restored',
+        description: 'The model has been reset to the saved state.',
       })
     }
   }
@@ -266,8 +271,8 @@ export default function PetriNetSimulator() {
   function handleResetCanvas() {
     petriNet.resetCanvas()
     toast({
-      title: "Canvas reset",
-      description: "All elements have been removed.",
+      title: 'Canvas reset',
+      description: 'All elements have been removed.',
     })
   }
 
@@ -298,10 +303,10 @@ export default function PetriNetSimulator() {
             fitView
             snapToGrid
             snapGrid={[15, 15]}
-            connectionLineStyle={{ stroke: "#000", strokeWidth: 2 }}
+            connectionLineStyle={{ stroke: '#000', strokeWidth: 2 }}
             defaultEdgeOptions={{
-              type: "petri",
-              markerEnd: { type: "ArrowClosed" },
+              type: 'petri',
+              markerEnd: { type: MarkerType.ArrowClosed },
             }}
             proOptions={{ hideAttribution: true }}
           >
@@ -313,7 +318,7 @@ export default function PetriNetSimulator() {
                   variant="outline"
                   className="flex items-center gap-2"
                   draggable
-                  onDragStart={(event) => onDragStart(event, "position")}
+                  onDragStart={event => onDragStart(event, 'position')}
                 >
                   <CircleIcon className="h-4 w-4" />
                   Position
@@ -322,12 +327,16 @@ export default function PetriNetSimulator() {
                   variant="outline"
                   className="flex items-center gap-2"
                   draggable
-                  onDragStart={(event) => onDragStart(event, "transition")}
+                  onDragStart={event => onDragStart(event, 'transition')}
                 >
                   <SquareIcon className="h-4 w-4" />
                   Transition
                 </Button>
-                <Button variant="outline" className="flex items-center gap-2" onClick={handleResetCanvas}>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={handleResetCanvas}
+                >
                   <RefreshCwIcon className="h-4 w-4" />
                   Reset
                 </Button>
@@ -358,11 +367,21 @@ export default function PetriNetSimulator() {
                   <DownloadIcon className="h-4 w-4" />
                   Export
                 </Button>
-                <Button variant="outline" className="flex items-center gap-2" onClick={handleImport}>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={handleImport}
+                >
                   <UploadIcon className="h-4 w-4" />
                   Import
                 </Button>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".json"
+                  className="hidden"
+                />
               </div>
             </Panel>
 
@@ -395,11 +414,19 @@ export default function PetriNetSimulator() {
                     <h3 className="font-medium">Display Settings</h3>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="show-labels">Show Labels</Label>
-                      <Switch id="show-labels" checked={showLabels} onCheckedChange={setShowLabels} />
+                      <Switch
+                        id="show-labels"
+                        checked={showLabels}
+                        onCheckedChange={setShowLabels}
+                      />
                     </div>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="show-numbers">Show Numbers</Label>
-                      <Switch id="show-numbers" checked={showNumbers} onCheckedChange={setShowNumbers} />
+                      <Switch
+                        id="show-numbers"
+                        checked={showNumbers}
+                        onCheckedChange={setShowNumbers}
+                      />
                     </div>
                   </div>
                 </PopoverContent>

@@ -1,4 +1,4 @@
-import PetriNetSimulator from "@/components/petri-net-simulator"
+import PetriNetSimulator from '@/components/petri-net-simulator'
 
 export default function Home() {
   return (
