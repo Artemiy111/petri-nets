@@ -54,14 +54,14 @@ function TransitionNode({ data, id, selected, showLabels, showNumbers }: Transit
     if (isFiring) return 'bg-orange-300'
     if (isWaiting) return 'bg-yellow-300'
     if (canFire) return 'bg-green-300'
-    return ''
+    return 'bg-white'
   }
 
   // Добавим визуальный индикатор доступности перехода
   return (
     <div className="relative">
       <div
-        className={`relative w-16 h-16 flex items-center justify-center bg-white border-2 ${
+        className={`relative w-16 h-16 flex items-center justify-center border-2 ${
           selected ? 'border-blue-500' : 'border-gray-400'
         } ${getBackgroundColor()} ${
           canFire && !isWaiting ? 'cursor-pointer' : 'cursor-not-allowed'

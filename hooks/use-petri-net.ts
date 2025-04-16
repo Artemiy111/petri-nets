@@ -123,81 +123,79 @@ export function usePetriNet() {
       isUpdatingRef.current = true
 
       // Используем setTimeout, чтобы разорвать синхронный цикл обновлений
-      setTimeout(() => {
-        // Создаём новый массив для обновлённых узлов
-        const updatedNodes = nodes.map((someNode) => {
-          if (someNode.type !== "transition") return someNode
-          const node = someNode as PetriNodeTransition
-          // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
-          if (node.data.waiting && node.data.tokensRemoved) return node
+      // Создаём новый массив для обновлённых узлов
+      const updatedNodes = nodes.map((someNode) => {
+        if (someNode.type !== "transition") return someNode
+        const node = someNode as PetriNodeTransition
+        // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
+        if (node.data.waiting && node.data.tokensRemoved) return node
 
-          // Находим входящие рёбра (из позиций в этот переход)
-          const inputEdges = edges.filter(
-            (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
-          )
+        // Находим входящие рёбра (из позиций в этот переход)
+        const inputEdges = edges.filter(
+          (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
+        )
 
-          // Проверяем, может ли переход сработать (все входные позиции содержат достаточно меток)
-          const canFire = inputEdges.every((edge) => {
-            const sourceNode = nodes.find((n) => n.id === edge.source)
-            if (!sourceNode || sourceNode.type !== "position") return false
+        // Проверяем, может ли переход сработать (все входные позиции содержат достаточно меток)
+        const canFire = inputEdges.every((edge) => {
+          const sourceNode = nodes.find((n) => n.id === edge.source)
+          if (!sourceNode || sourceNode.type !== "position") return false
 
-            const requiredTokens = edge.data?.weight || 1
-            return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
-          })
-
-          // Обрабатываем активацию перехода и состояние ожидания
-          const currentData = node.data as TransitionData
-
-          // Если переход только что стал активным
-          if (canFire && !currentData.canFire) {
-            return {
-              ...node,
-              data: {
-                ...currentData,
-                canFire: true,
-              },
-            }
-          }
-
-          // Если переход больше не активен и не находится в состоянии ожидания
-          if (!canFire && currentData.canFire && !currentData.waiting) {
-            return {
-              ...node,
-              data: {
-                ...currentData,
-                canFire: false,
-              },
-            }
-          }
-
-          // Если переход больше не активен, но находится в состоянии ожидания и метки уже забраны
-          // Это не должно происходить в нормальной ситуации, но обработаем на всякий случай
-          if (!canFire && currentData.waiting && currentData.tokensRemoved) {
-            return node
-          }
-
-          return node
+          const requiredTokens = edge.data?.weight || 1
+          return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
         })
 
-        // Обновляем состояние, только если есть изменения
-        const hasChanges = updatedNodes.some((newNode, index) => {
-          if (index >= nodes.length) return false
-          const oldData = nodes[index].data
-          const newData = newNode.data
-          return (
-            newData.canFire !== oldData.canFire ||
-            newData.waiting !== oldData.waiting ||
-            newData.activationTime !== oldData.activationTime ||
-            newData.tokensRemoved !== oldData.tokensRemoved
-          )
-        })
+        // Обрабатываем активацию перехода и состояние ожидания
+        const currentData = node.data as TransitionData
 
-        if (hasChanges) {
-          setNodes(updatedNodes)
+        // Если переход только что стал активным
+        if (canFire && !currentData.canFire) {
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              canFire: true,
+            },
+          }
         }
 
-        isUpdatingRef.current = false
-      }, 0)
+        // Если переход больше не активен и не находится в состоянии ожидания
+        if (!canFire && currentData.canFire && !currentData.waiting) {
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              canFire: false,
+            },
+          }
+        }
+
+        // Если переход больше не активен, но находится в состоянии ожидания и метки уже забраны
+        // Это не должно происходить в нормальной ситуации, но обработаем на всякий случай
+        if (!canFire && currentData.waiting && currentData.tokensRemoved) {
+          return node
+        }
+
+        return node
+      })
+
+      // Обновляем состояние, только если есть изменения
+      const hasChanges = updatedNodes.some((newNode, index) => {
+        if (index >= nodes.length) return false
+        const oldData = nodes[index].data
+        const newData = newNode.data
+        return (
+          newData.canFire !== oldData.canFire ||
+          newData.waiting !== oldData.waiting ||
+          newData.activationTime !== oldData.activationTime ||
+          newData.tokensRemoved !== oldData.tokensRemoved
+        )
+      })
+
+      if (hasChanges) {
+        setNodes(updatedNodes)
+      }
+
+      isUpdatingRef.current = false
     }
   }, [nodes, edges, time, setNodes])
 
