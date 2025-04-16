@@ -85,11 +85,9 @@ export function usePetriNet() {
     }
   }, [nodes, recalculateNodeNumbers, setNodes])
 
-  // Сохраняем начальное состояние
   const saveInitialState = () => {
-    // Глубокое клонирование узлов и рёбер для предотвращения проблем с ссылками
-    const clonedNodes = JSON.parse(JSON.stringify(nodes))
-    const clonedEdges = JSON.parse(JSON.stringify(edges))
+    const clonedNodes = structuredClone(nodes)
+    const clonedEdges = structuredClone(edges)
 
     setInitialNodes(clonedNodes)
     setInitialEdges(clonedEdges)
@@ -98,12 +96,10 @@ export function usePetriNet() {
     return true // Возвращаем true для подтверждения успешного сохранения
   }
 
-  // Сброс к начальному состоянию
   const resetToInitialState = () => {
     if (isInitialStateSaved) {
-      // Глубокое клонирование для предотвращения проблем с ссылками
-      const clonedNodes = JSON.parse(JSON.stringify(initialNodes))
-      const clonedEdges = JSON.parse(JSON.stringify(initialEdges))
+      const clonedNodes = structuredClone(initialNodes)
+      const clonedEdges = structuredClone(initialEdges)
 
       // Пересчитываем номера узлов
       const updatedNodes = recalculateNodeNumbers(clonedNodes)
@@ -123,27 +119,12 @@ export function usePetriNet() {
     if (!isUpdatingRef.current) {
       isUpdatingRef.current = true
 
-      // Используем setTimeout, чтобы разорвать синхронный цикл обновлений
-      // Создаём новый массив для обновлённых узлов
       const updatedNodes = nodes.map((someNode) => {
         if (someNode.type !== "transition") return someNode
         const node = someNode as PetriNodeTransition
         // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
         if (node.data.waiting && node.data.tokensRemoved) return node
 
-        // // Находим входящие рёбра (из позиций в этот переход)
-        // const inputEdges = edges.filter(
-        //   (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
-        // )
-
-        // Проверяем, может ли переход сработать (все входные позиции содержат достаточно меток)
-        // const canFire = inputEdges.every((edge) => {
-        //   const sourceNode = nodes.find((n) => n.id === edge.source)
-        //   if (!sourceNode || sourceNode.type !== "position") return false
-
-        //   const requiredTokens = edge.data?.weight || 1
-        //   return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
-        // })
         const canFire = canTransitionFire(node.id, nodes, edges)
 
         // Обрабатываем активацию перехода и состояние ожидания
@@ -241,8 +222,6 @@ export function usePetriNet() {
 
     if (!isValid) return
 
-    // Добавляем ребро с весом по умолчанию = 1
-    // Ребро всегда направлено по потоку
     setEdges((eds) =>
       addEdge<Edge<ArcData>>(
         {
@@ -260,9 +239,7 @@ export function usePetriNet() {
     )
   }
 
-  // Create a new node
   const createNode = (type: "position" | "transition", position: { x: number; y: number }) => {
-    // Create the appropriate node based on type
     let newNode: Node<PositionData | TransitionData>
     if (type === "position") {
       newNode = {
@@ -288,47 +265,40 @@ export function usePetriNet() {
           label: "",
           labelPosition: "top",
           tokensRemoved: false,
-          number: 0, // Будет пересчитано
+          number: nodes.length + 1,
         },
       }
     }
 
     // Добавляем новый узел и пересчитываем номера
-    const updatedNodes = recalculateNodeNumbers([...nodes, newNode])
+    const updatedNodes = [...nodes, newNode]
     setNodes(updatedNodes)
     return newNode
   }
 
-  // Update node data
   const updateNodeData = (nodeId: string, data: Partial<PositionData | TransitionData>) => {
     setNodes((nds) => nds.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node)))
   }
 
-  // Update edge data
   const updateEdgeData = (edgeId: string, data: Partial<ArcData>) => {
     setEdges((eds) => eds.map((edge) => (edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge)))
   }
 
-  // Delete node
   const deleteNode = (nodeId: string) => {
     setNodes((nds) => {
       const filteredNodes = nds.filter((node) => node.id !== nodeId)
-      // Пересчитываем номера узлов
       return recalculateNodeNumbers(filteredNodes)
     })
 
-    // Also delete connected edges
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
     return true
   }
 
-  // Delete edge
   const deleteEdge = (edgeId: string) => {
     setEdges((eds) => eds.filter((edge) => edge.id !== edgeId))
     return true
   }
 
-  // Reset the canvas
   const resetCanvas = () => {
     setNodes([])
     setEdges([])
@@ -345,7 +315,6 @@ export function usePetriNet() {
       return false
     }
 
-    // Find the transition node
     const transitionNode = nodes.find((node) => node.id === transitionId)
     if (!transitionNode || transitionNode.type !== "transition") return false
 
@@ -415,10 +384,8 @@ export function usePetriNet() {
     return true
   }
 
-  // Export model to JSON
   const exportModel = exportModelUtil(nodes, edges)
 
-  // Import model from JSON
   const importModel = (json: string) => {
     try {
       const { nodes: importedNodes, edges: importedEdges } = importModelUtil(json)
@@ -437,7 +404,6 @@ export function usePetriNet() {
         return node
       })
 
-      // Find the highest node ID to update the counter
       const highestId = updatedNodes.reduce((max, node) => {
         const idNum = Number.parseInt(node.id.split("-")[1] || "0")
         return Math.max(max, idNum)
@@ -445,7 +411,6 @@ export function usePetriNet() {
 
       nodeIdCounter.current = highestId + 1
 
-      // Пересчитываем номера узлов
       const nodesWithNumbers = recalculateNodeNumbers(updatedNodes)
       setNodes(nodesWithNumbers)
       setEdges(importedEdges)
@@ -458,33 +423,27 @@ export function usePetriNet() {
   }
 
   return {
-    // State
     nodes,
     edges,
     time,
     isInitialStateSaved,
 
-    // Event handlers
     onNodesChange,
     onEdgesChange,
     onConnect,
 
-    // Node and edge operations
     createNode,
     updateNodeData,
     updateEdgeData,
     deleteNode,
     deleteEdge,
 
-    // Transition operations
     startTransition,
     completeTransition,
 
-    // Timer operations
     incrementTime,
     resetTimer,
 
-    // Model operations
     saveInitialState,
     resetToInitialState,
     resetCanvas,

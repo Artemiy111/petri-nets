@@ -70,17 +70,8 @@ export function updateTransitionStates(
     // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
     if (node.data.waiting && node.data.tokensRemoved) return node
 
-    // Найдём входящие дуги (от позиций к этому переходу)
-    const inputEdges = edges.filter((edge) => edge.target === node.id)
-
     // Проверим, может ли переход сработать (все входные позиции имеют достаточно токенов)
-    const canFire = inputEdges.every((edge) => {
-      const sourceNode = nodes.find((n) => n.id === edge.source)
-      if (!sourceNode || sourceNode.type !== "position") return false
-
-      const requiredTokens = edge.data?.weight || 1
-      return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
-    })
+    const canFire = canTransitionFire(node.id, nodes, edges)
 
     // Обновим только если состояние canFire изменилось
 
@@ -202,92 +193,6 @@ export function addTokensToOutputs(
 
   return updatedNodes
 }
-
-// Срабатывание перехода
-// export function fireTransition(
-//   transitionId: string,
-//   nodes: PetriNode[],
-//   edges: PetriEdge[],
-// ): Node<PositionData | TransitionData>[] {
-//   // Проверим, может ли переход сработать
-//   if (!canTransitionFire(transitionId, nodes, edges)) {
-//     return nodes
-//   }
-
-//   // Найдём переход
-//   const transitionNode = nodes.find((node) => node.id === transitionId)
-//   if (!transitionNode || transitionNode.type !== "transition") return nodes
-
-//   // Найдём входящие дуги (от позиций к этому переходу)
-//   const inputEdges = edges.filter(
-//     (edge) => edge.target === transitionId && nodes.find((n) => n.id === edge.source)?.type === "position",
-//   )
-
-//   // Найдём выходящие дуги (от этого перехода к позициям)
-//   const outputEdges = edges.filter(
-//     (edge) => edge.source === transitionId && nodes.find((n) => n.id === edge.target)?.type === "position",
-//   )
-
-//   // Проверим, можно ли сработать (достаточно ли меток)
-//   const canFire = canTransitionFire(transitionId, nodes, edges)
-//   // const canFire = inputEdges.every((edge) => {
-//   //   const sourceNode = nodes.find((node) => node.id === edge.source)
-//   //   if (!sourceNode || sourceNode.type !== "position") return false
-
-//   //   const requiredTokens = edge.data?.weight || 1
-//   //   return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
-//   // })
-
-//   if (!canFire) return nodes
-
-//   // Переход срабатывает: удаляем метки из входных позиций
-//   const updatedNodes = [...nodes]
-
-//   inputEdges.forEach((edge) => {
-//     const sourceNodeIndex = updatedNodes.findIndex((node) => node.id === edge.source)
-//     if (sourceNodeIndex === -1) return
-
-//     const weight = edge.data?.weight || 1
-//     const nodeData = updatedNodes[sourceNodeIndex].data as PositionData
-//     updatedNodes[sourceNodeIndex] = {
-//       ...updatedNodes[sourceNodeIndex],
-//       data: {
-//         ...nodeData,
-//         tokens: (nodeData.tokens || 0) - weight,
-//       },
-//     }
-//   })
-
-//   // Добавляем метки в выходные позиции
-//   outputEdges.forEach((edge) => {
-//     const targetNodeIndex = updatedNodes.findIndex((node) => node.id === edge.target)
-//     if (targetNodeIndex === -1) return
-
-//     const weight = edge.data?.weight || 1
-//     const nodeData = updatedNodes[targetNodeIndex].data as PositionData
-//     updatedNodes[targetNodeIndex] = {
-//       ...updatedNodes[targetNodeIndex],
-//       data: {
-//         ...nodeData,
-//         tokens: (nodeData.tokens || 0) + weight,
-//       },
-//     }
-//   })
-
-//   // Подсветим переход, чтобы показать, что он сработал
-//   const nodeIndex = updatedNodes.findIndex((node) => node.id === transitionId)
-//   if (nodeIndex !== -1) {
-//     updatedNodes[nodeIndex] = {
-//       ...updatedNodes[nodeIndex],
-//       data: {
-//         ...updatedNodes[nodeIndex].data,
-//         firing: true,
-//       },
-//     }
-//   }
-
-//   return updatedNodes
-// }
 
 // Экспорт модели в JSON
 export function exportModel(nodes: Node<PositionData | TransitionData>[], edges: Edge<ArcData>[]): string {
