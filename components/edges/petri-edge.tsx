@@ -1,10 +1,11 @@
-"use client"
+'use client'
 
-import { memo } from "react"
-import { type EdgeProps, getBezierPath } from "@xyflow/react"
-import type { ArcData } from "@/lib/petri-net"
+import { memo } from 'react'
+import { type EdgeProps, getBezierPath } from '@xyflow/react'
+import type { ArcData } from '@/lib/petri-net'
+import type { PetriEdge } from '@/hooks/use-petri-net'
 
-type PetriEdgeProps = EdgeProps<ArcData> & {
+type PetriEdgeProps = EdgeProps<PetriEdge> & {
   showLabels: boolean
 }
 
@@ -23,8 +24,8 @@ function PetriEdge({
   showLabels,
 }: PetriEdgeProps) {
   const weight = data?.weight || 1
-  const label = data?.label || ""
-  const labelPosition = data?.labelPosition || "top"
+  const label = data?.label || ''
+  const labelPosition = data?.labelPosition || 'top'
   const isWeightGreaterThanOne = weight > 1
 
   // Calculate the bezier path for the edge
@@ -40,13 +41,13 @@ function PetriEdge({
   // Calculate label offset based on position
   const getLabelOffset = () => {
     switch (labelPosition) {
-      case "top":
+      case 'top':
         return { x: 0, y: -10 }
-      case "right":
+      case 'right':
         return { x: 10, y: 0 }
-      case "bottom":
+      case 'bottom':
         return { x: 0, y: 10 }
-      case "left":
+      case 'left':
         return { x: -10, y: 0 }
       default:
         return { x: 0, y: -10 }
@@ -62,7 +63,7 @@ function PetriEdge({
         style={{
           ...style,
           strokeWidth: isWeightGreaterThanOne ? 3 : selected ? 2 : 1.5,
-          stroke: selected ? "#3b82f6" : "#000",
+          stroke: selected ? '#3b82f6' : '#000',
         }}
         className="react-flow__edge-path"
         d={edgePath}
@@ -71,9 +72,17 @@ function PetriEdge({
 
       {/* Display the weight of the edge only if greater than 1 */}
       {isWeightGreaterThanOne && (
-        <foreignObject width={40} height={40} x={labelX - 20} y={labelY - 20} className="overflow-visible">
+        <foreignObject
+          width={40}
+          height={40}
+          x={labelX - 20}
+          y={labelY - 20}
+          className="overflow-visible"
+        >
           <div className="flex items-center justify-center h-full">
-            <div className="bg-white px-2 py-1 rounded-full text-xs border border-gray-300">{weight}</div>
+            <div className="bg-white px-2 py-1 rounded-full text-xs border border-gray-300">
+              {weight}
+            </div>
           </div>
         </foreignObject>
       )}
