@@ -131,10 +131,10 @@ export function usePetriNet() {
         // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
         if (node.data.waiting && node.data.tokensRemoved) return node
 
-        // Находим входящие рёбра (из позиций в этот переход)
-        const inputEdges = edges.filter(
-          (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
-        )
+        // // Находим входящие рёбра (из позиций в этот переход)
+        // const inputEdges = edges.filter(
+        //   (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
+        // )
 
         // Проверяем, может ли переход сработать (все входные позиции содержат достаточно меток)
         // const canFire = inputEdges.every((edge) => {
