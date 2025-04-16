@@ -1,6 +1,6 @@
 import type { Node, Edge } from "@xyflow/react"
 
-// Define proper types for the Petri net elements
+
 export type PositionData = {
   tokens: number
   label?: string
@@ -8,7 +8,6 @@ export type PositionData = {
   number?: number
 }
 
-// Обновим тип TransitionData, добавив поля для задержки и времени активации
 export type TransitionData = {
   firing: boolean
   canFire: boolean
@@ -18,7 +17,7 @@ export type TransitionData = {
   label?: string
   labelPosition?: "top" | "right" | "bottom" | "left"
   number: number
-  // Добавим новое поле для отслеживания состояния "метки забраны, но еще не добавлены"
+  // Поле для отслеживания состояния "метки забраны, но еще не добавлены"
   tokensRemoved: boolean
 }
 
@@ -39,11 +38,11 @@ export function canTransitionFire(
   nodes: Node<PositionData | TransitionData>[],
   edges: Edge<ArcData>[],
 ): boolean {
-  // Найдем переход
+  // Найдём переход
   const transitionNode = nodes.find((node) => node.id === transitionId)
   if (!transitionNode || transitionNode.type !== "transition") return false
 
-  // Найдем входящие дуги (от позиций к этому переходу)
+  // Найдём входящие дуги (от позиций к этому переходу)
   const inputEdges = edges.filter(
     (edge) => edge.target === transitionId && nodes.find((n) => n.id === edge.source)?.type === "position",
   )
@@ -58,22 +57,22 @@ export function canTransitionFire(
   })
 }
 
-// Check which transitions can fire
+// Обновление состояния переходов: какие могут сработать
 export function updateTransitionStates(
   nodes: Node<PositionData | TransitionData>[],
   edges: Edge<ArcData>[],
 ): Node<PositionData | TransitionData>[] {
-  // Create a new array to track which transitions need updates
-  const updatedNodes = nodes.map((node) => {
-    if (node.type !== "transition") return node
-
+  // Создаём новый массив для отслеживания переходов, которые нужно обновить
+  const updatedNodes = nodes.map((someNode) => {
+    if (someNode.type !== "transition") return someNode as Node<PositionData>
+    const node = someNode as Node<TransitionData>
     // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
     if (node.data.waiting && node.data.tokensRemoved) return node
 
-    // Find input edges (from positions to this transition)
+    // Найдём входящие дуги (от позиций к этому переходу)
     const inputEdges = edges.filter((edge) => edge.target === node.id)
 
-    // Check if transition can fire (all input positions have enough tokens)
+    // Проверим, может ли переход сработать (все входные позиции имеют достаточно токенов)
     const canFire = inputEdges.every((edge) => {
       const sourceNode = nodes.find((n) => n.id === edge.source)
       if (!sourceNode || sourceNode.type !== "position") return false
@@ -82,8 +81,9 @@ export function updateTransitionStates(
       return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
     })
 
-    // Only update if the canFire state has changed
-    if (canFire !== node.data.canFire) {
+    // Обновим только если состояние canFire изменилось
+
+    if ('canFire' in node.data && canFire !== node.data.canFire) {
       return {
         ...node,
         data: {
@@ -109,11 +109,11 @@ export function removeTokensFromInputs(
   nodes: Node<PositionData | TransitionData>[],
   edges: Edge<ArcData>[],
 ): Node<PositionData | TransitionData>[] {
-  // Найдем переход
+  // Найдём переход
   const transitionNode = nodes.find((node) => node.id === transitionId)
   if (!transitionNode || transitionNode.type !== "transition") return nodes
 
-  // Найдем входящие дуги (от позиций к этому переходу)
+  // Найдём входящие дуги (от позиций к этому переходу)
   const inputEdges = edges.filter(
     (edge) => edge.target === transitionId && nodes.find((n) => n.id === edge.source)?.type === "position",
   )
@@ -157,11 +157,11 @@ export function addTokensToOutputs(
   nodes: Node<PositionData | TransitionData>[],
   edges: Edge<ArcData>[],
 ): Node<PositionData | TransitionData>[] {
-  // Найдем переход
+  // Найдём переход
   const transitionNode = nodes.find((node) => node.id === transitionId)
   if (!transitionNode || transitionNode.type !== "transition") return nodes
 
-  // Найдем выходящие дуги (от этого перехода к позициям)
+  // Найдём выходящие дуги (от этого перехода к позициям)
   const outputEdges = edges.filter(
     (edge) => edge.source === transitionId && nodes.find((n) => n.id === edge.target)?.type === "position",
   )
@@ -202,7 +202,7 @@ export function addTokensToOutputs(
   return updatedNodes
 }
 
-// Fire a transition
+// Срабатывание перехода
 export function fireTransition(
   transitionId: string,
   nodes: Node<PositionData | TransitionData>[],
@@ -213,21 +213,21 @@ export function fireTransition(
     return nodes
   }
 
-  // Find the transition node
+  // Найдём переход
   const transitionNode = nodes.find((node) => node.id === transitionId)
   if (!transitionNode || transitionNode.type !== "transition") return nodes
 
-  // Find input edges (from positions to this transition)
+  // Найдём входящие дуги (от позиций к этому переходу)
   const inputEdges = edges.filter(
     (edge) => edge.target === transitionId && nodes.find((n) => n.id === edge.source)?.type === "position",
   )
 
-  // Find output edges (from this transition to positions)
+  // Найдём выходящие дуги (от этого перехода к позициям)
   const outputEdges = edges.filter(
     (edge) => edge.source === transitionId && nodes.find((n) => n.id === edge.target)?.type === "position",
   )
 
-  // Check if transition can fire (all input positions have enough tokens)
+  // Проверим, можно ли сработать (достаточно ли меток)
   const canFire = inputEdges.every((edge) => {
     const sourceNode = nodes.find((node) => node.id === edge.source)
     if (!sourceNode || sourceNode.type !== "position") return false
@@ -238,7 +238,7 @@ export function fireTransition(
 
   if (!canFire) return nodes
 
-  // Fire the transition: remove tokens from input positions
+  // Переход срабатывает: удаляем метки из входных позиций
   const updatedNodes = [...nodes]
 
   inputEdges.forEach((edge) => {
@@ -256,7 +256,7 @@ export function fireTransition(
     }
   })
 
-  // Add tokens to output positions
+  // Добавляем метки в выходные позиции
   outputEdges.forEach((edge) => {
     const targetNodeIndex = updatedNodes.findIndex((node) => node.id === edge.target)
     if (targetNodeIndex === -1) return
@@ -272,7 +272,7 @@ export function fireTransition(
     }
   })
 
-  // Highlight the transition to show it fired
+  // Подсветим переход, чтобы показать, что он сработал
   const nodeIndex = updatedNodes.findIndex((node) => node.id === transitionId)
   if (nodeIndex !== -1) {
     updatedNodes[nodeIndex] = {
@@ -287,7 +287,7 @@ export function fireTransition(
   return updatedNodes
 }
 
-// Export model to JSON
+// Экспорт модели в JSON
 export function exportModel(nodes: Node<PositionData | TransitionData>[], edges: Edge<ArcData>[]): string {
   const model: PetriNetModel = {
     nodes,
@@ -296,13 +296,13 @@ export function exportModel(nodes: Node<PositionData | TransitionData>[], edges:
   return JSON.stringify(model, null, 2)
 }
 
-// Import model from JSON
+// Импорт модели из JSON
 export function importModel(json: string): PetriNetModel {
   try {
     const model = JSON.parse(json) as PetriNetModel
     return model
   } catch (error) {
-    console.error("Failed to parse model JSON:", error)
-    throw new Error("Invalid model file")
+    console.error("Не удалось разобрать JSON модели:", error)
+    throw new Error("Некорректный файл модели")
   }
 }

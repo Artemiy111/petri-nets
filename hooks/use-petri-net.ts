@@ -13,36 +13,40 @@ import {
   addTokensToOutputs,
 } from "@/lib/petri-net"
 
+export type PetriNode = Node<PositionData | TransitionData>
+export type PetriNodePosition = Node<PositionData>
+export type PetriNodeTransition = Node<TransitionData>
+
 export function usePetriNet() {
-  // Nodes and edges state with proper typing
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<PositionData | TransitionData>>([])
+  // Состояние узлов и рёбер с правильной типизацией
+  const [nodes, setNodes, onNodesChange] = useNodesState<PetriNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge<ArcData>>([])
 
-  // Timer state
+  // Состояние таймера
   const [time, setTime] = useState(0)
 
-  // Initial state for reset functionality
+  // Начальное состояние для сброса
   const [initialNodes, setInitialNodes] = useState<Node<PositionData | TransitionData>[]>([])
   const [initialEdges, setInitialEdges] = useState<Edge<ArcData>[]>([])
   const [isInitialStateSaved, setIsInitialStateSaved] = useState(false)
 
-  // Node counter for unique IDs
+  // Счётчик узлов для уникальных ID
   const nodeIdCounter = useRef(0)
 
-  // Use a ref to track if we're in the middle of an update
+  // Ref, отслеживающий, происходит ли сейчас обновление
   const isUpdatingRef = useRef(false)
 
-  // Timer functions
-  const incrementTime = useCallback(() => {
+  // Функции таймера
+  const incrementTime = () => {
     setTime((prevTime) => prevTime + 1)
-  }, [])
+  }
 
-  const resetTimer = useCallback(() => {
+  const resetTimer = () => {
     setTime(0)
-  }, [])
+  }
 
-  // Recalculate node numbers based on their type and position in the array
-  const recalculateNodeNumbers = useCallback((nodeArray: Node<PositionData | TransitionData>[]) => {
+  // Пересчёт номеров узлов на основе их типа и позиции в массиве
+  const recalculateNodeNumbers = (nodeArray: Node<PositionData | TransitionData>[]) => {
     let positionIndex = 0
     let transitionIndex = 0
 
@@ -62,7 +66,7 @@ export function usePetriNet() {
       }
       return node
     })
-  }, [])
+  }
 
   // Обновляем номера узлов при изменении массива узлов
   useEffect(() => {
@@ -80,9 +84,9 @@ export function usePetriNet() {
     }
   }, [nodes, recalculateNodeNumbers, setNodes])
 
-  // Save initial state
+  // Сохраняем начальное состояние
   const saveInitialState = useCallback(() => {
-    // Deep clone nodes and edges to avoid reference issues
+    // Глубокое клонирование узлов и рёбер для предотвращения проблем с ссылками
     const clonedNodes = JSON.parse(JSON.stringify(nodes))
     const clonedEdges = JSON.parse(JSON.stringify(edges))
 
@@ -93,10 +97,10 @@ export function usePetriNet() {
     return true // Возвращаем true для подтверждения успешного сохранения
   }, [nodes, edges])
 
-  // Reset to initial state
-  const resetToInitialState = useCallback(() => {
+  // Сброс к начальному состоянию
+  const resetToInitialState = () => {
     if (isInitialStateSaved) {
-      // Deep clone to avoid reference issues
+      // Глубокое клонирование для предотвращения проблем с ссылками
       const clonedNodes = JSON.parse(JSON.stringify(initialNodes))
       const clonedEdges = JSON.parse(JSON.stringify(initialEdges))
 
@@ -110,29 +114,29 @@ export function usePetriNet() {
       return true // Возвращаем true для подтверждения успешного восстановления
     }
     return false
-  }, [isInitialStateSaved, initialNodes, initialEdges, recalculateNodeNumbers, setNodes, setEdges, resetTimer])
+  }
 
-  // Update transition states when tokens or edges change
+  // Обновляем состояния переходов при изменении меток или рёбер
   useEffect(() => {
-    // Prevent infinite loops by checking if we're already updating
+    // Предотвращаем бесконечные циклы обновления
     if (!isUpdatingRef.current) {
       isUpdatingRef.current = true
 
-      // Use setTimeout to break the synchronous update cycle
+      // Используем setTimeout, чтобы разорвать синхронный цикл обновлений
       setTimeout(() => {
-        // Create a new array to track which transitions need updates
-        const updatedNodes = nodes.map((node) => {
-          if (node.type !== "transition") return node
-
+        // Создаём новый массив для обновлённых узлов
+        const updatedNodes = nodes.map((someNode) => {
+          if (someNode.type !== "transition") return someNode
+          const node = someNode as PetriNodeTransition
           // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
           if (node.data.waiting && node.data.tokensRemoved) return node
 
-          // Find input edges (from positions to this transition)
+          // Находим входящие рёбра (из позиций в этот переход)
           const inputEdges = edges.filter(
             (edge) => edge.target === node.id && nodes.find((n) => n.id === edge.source)?.type === "position",
           )
 
-          // Check if transition can fire (all input positions have enough tokens)
+          // Проверяем, может ли переход сработать (все входные позиции содержат достаточно меток)
           const canFire = inputEdges.every((edge) => {
             const sourceNode = nodes.find((n) => n.id === edge.source)
             if (!sourceNode || sourceNode.type !== "position") return false
@@ -141,10 +145,10 @@ export function usePetriNet() {
             return ((sourceNode.data as PositionData).tokens || 0) >= requiredTokens
           })
 
-          // Handle transition activation and waiting state
+          // Обрабатываем активацию перехода и состояние ожидания
           const currentData = node.data as TransitionData
 
-          // If transition just became enabled
+          // Если переход только что стал активным
           if (canFire && !currentData.canFire) {
             return {
               ...node,
@@ -155,7 +159,7 @@ export function usePetriNet() {
             }
           }
 
-          // If transition is no longer enabled and not in waiting state
+          // Если переход больше не активен и не находится в состоянии ожидания
           if (!canFire && currentData.canFire && !currentData.waiting) {
             return {
               ...node,
@@ -166,17 +170,16 @@ export function usePetriNet() {
             }
           }
 
-          // If transition is no longer enabled but in waiting state with tokens removed
-          // This shouldn't happen in normal operation, but handle it just in case
+          // Если переход больше не активен, но находится в состоянии ожидания и метки уже забраны
+          // Это не должно происходить в нормальной ситуации, но обработаем на всякий случай
           if (!canFire && currentData.waiting && currentData.tokensRemoved) {
-            // Transition stays in waiting state until it completes
             return node
           }
 
           return node
         })
 
-        // Only update state if there were actual changes
+        // Обновляем состояние, только если есть изменения
         const hasChanges = updatedNodes.some((newNode, index) => {
           if (index >= nodes.length) return false
           const oldData = nodes[index].data
@@ -198,9 +201,9 @@ export function usePetriNet() {
     }
   }, [nodes, edges, time, setNodes])
 
-  // Check for transitions that should fire based on their delay
+  // Проверка переходов, которые должны сработать с учётом задержки
   useEffect(() => {
-    // Find transitions that are waiting and check if they should fire
+    // Находим переходы, находящиеся в ожидании, и проверяем, пора ли им сработать
     const transitionsToComplete: string[] = []
 
     nodes.forEach((node) => {
@@ -215,7 +218,7 @@ export function usePetriNet() {
       }
     })
 
-    // Complete transitions that have waited long enough
+    // Завершаем переходы, которые достаточно подождали
     if (transitionsToComplete.length > 0) {
       transitionsToComplete.forEach((id) => {
         completeTransition(id)
@@ -223,24 +226,24 @@ export function usePetriNet() {
     }
   }, [time, nodes])
 
-  // Handle connection between nodes
+  // Обработка соединения между узлами
   const onConnect = useCallback(
     (params: Connection) => {
-      // Check if connection is valid (position to transition or transition to position)
+      // Проверяем допустимость соединения (позиция -> переход или наоборот)
       const sourceNode = nodes.find((node) => node.id === params.source)
       const targetNode = nodes.find((node) => node.id === params.target)
 
       if (!sourceNode || !targetNode) return
 
-      // Ensure correct direction: position -> transition or transition -> position
+      // Убеждаемся, что направление соединения верное
       const isValid =
         (sourceNode.type === "position" && targetNode.type === "transition") ||
         (sourceNode.type === "transition" && targetNode.type === "position")
 
       if (!isValid) return
 
-      // Add edge with default weight of 1
-      // The edge should always point in the direction of the flow
+      // Добавляем ребро с весом по умолчанию = 1
+      // Ребро всегда направлено по потоку
       setEdges((eds) =>
         addEdge<Edge<ArcData>>(
           {

@@ -1,12 +1,18 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import type { Edge } from "@xyflow/react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { ArcData } from "@/lib/petri-net"
+import { useState, useEffect } from 'react'
+import type { Edge } from '@xyflow/react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { ArcData } from '@/lib/petri-net'
 
 interface EdgeEditContentProps {
   edge: Edge<ArcData>
@@ -16,15 +22,15 @@ interface EdgeEditContentProps {
 
 export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditContentProps) {
   const [weight, setWeight] = useState<number>(1)
-  const [label, setLabel] = useState<string>("")
-  const [labelPosition, setLabelPosition] = useState<"top" | "right" | "bottom" | "left">("top")
+  const [label, setLabel] = useState<string>('')
+  const [labelPosition, setLabelPosition] = useState<'top' | 'right' | 'bottom' | 'left'>('top')
 
   // Initialize local state from edge data
   useEffect(() => {
     if (edge) {
       setWeight(edge.data?.weight || 1)
-      setLabel(edge.data?.label || "")
-      setLabelPosition(edge.data?.labelPosition || "top")
+      setLabel(edge.data?.label || '')
+      setLabelPosition(edge.data?.labelPosition || 'top')
     }
   }, [edge])
 
@@ -50,7 +56,7 @@ export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditCon
           type="number"
           min="1"
           value={weight}
-          onChange={(e) => setWeight(Number.parseInt(e.target.value) || 1)}
+          onChange={e => setWeight(Number.parseInt(e.target.value) || 1)}
           className="col-span-3"
         />
       </div>
@@ -62,7 +68,7 @@ export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditCon
         <Input
           id="label"
           value={label}
-          onChange={(e) => setLabel(e.target.value)}
+          onChange={e => setLabel(e.target.value)}
           className="col-span-3"
           placeholder="Enter label"
         />
@@ -74,7 +80,7 @@ export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditCon
         </Label>
         <Select
           value={labelPosition}
-          onValueChange={(value) => setLabelPosition(value as "top" | "right" | "bottom" | "left")}
+          onValueChange={value => setLabelPosition(value as 'top' | 'right' | 'bottom' | 'left')}
         >
           <SelectTrigger id="labelPosition" className="col-span-3">
             <SelectValue placeholder="Select position" />
