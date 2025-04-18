@@ -4,8 +4,8 @@
 
 ### Запуск
 
-``sh
+```sh
 npm run dev
-``
+```
 
 Зайти на http://localhost:3000
