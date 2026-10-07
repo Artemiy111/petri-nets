@@ -2,7 +2,7 @@
 
 ![image](https://github.com/user-attachments/assets/d1874892-d7ca-4daf-92e8-8d30b20c1e68)
 
-### Run proggram
+### Run program
 
 ```sh
 npm run dev
