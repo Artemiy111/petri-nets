@@ -23,7 +23,16 @@ Go to http://localhost:3000. To publish a different port, set `APP_PORT`:
 APP_PORT=8080 docker compose up --build
 ```
 
-The production image is built with `docker build -t petri-nets .` and served on port 3000.
+The production image is built with `docker build -t timed-petri-nets .` and served on port 3000.
+
+Every push to `main` publishes the image to GHCR:
+
+```sh
+docker pull ghcr.io/artemiy111/timed-petri-nets:latest
+docker run --rm -p 3000:3000 ghcr.io/artemiy111/timed-petri-nets:latest
+```
+
+The package is private by default; to pull it without authenticating, make it public in the repository's package settings.
 
 ## License
 

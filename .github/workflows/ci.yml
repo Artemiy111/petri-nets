@@ -48,6 +48,9 @@ jobs:
   docker:
     name: Docker
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
 
@@ -56,10 +59,19 @@ jobs:
       - name: Validate compose file
         run: docker compose config
 
-      - name: Build image
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: false
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/artemiy111/timed-petri-nets:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

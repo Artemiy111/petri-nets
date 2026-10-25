@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: petri-nets:latest
+    image: timed-petri-nets:latest
     container_name: petri-nets
     restart: unless-stopped
     init: true
