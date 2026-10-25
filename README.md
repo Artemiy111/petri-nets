@@ -24,3 +24,7 @@ APP_PORT=8080 docker compose up --build
 ```
 
 The production image is built with `docker build -t petri-nets .` and served on port 3000.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
