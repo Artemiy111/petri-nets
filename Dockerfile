@@ -17,7 +17,7 @@ COPY . .
 RUN bun run build
 
 # Production image
-FROM node:22-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
