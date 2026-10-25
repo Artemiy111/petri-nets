@@ -5,7 +5,22 @@
 ### Run program
 
 ```sh
-npm run dev
+bun install
+bun run dev
 ```
 
 Go to http://localhost:3000
+
+### Run with Docker
+
+```sh
+docker compose up --build
+```
+
+Go to http://localhost:3000. To publish a different port, set `APP_PORT`:
+
+```sh
+APP_PORT=8080 docker compose up --build
+```
+
+The production image is built with `docker build -t petri-nets .` and served on port 3000.
