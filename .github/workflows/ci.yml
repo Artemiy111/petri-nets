@@ -54,6 +54,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v4
 
       - name: Validate compose file
@@ -72,6 +74,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          platforms: linux/amd64,linux/arm64
           tags: ghcr.io/artemiy111/timed-petri-nets:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
