@@ -32,7 +32,9 @@ docker pull ghcr.io/artemiy111/timed-petri-nets:latest
 docker run --rm -p 3000:3000 ghcr.io/artemiy111/timed-petri-nets:latest
 ```
 
-The package is private by default; to pull it without authenticating, make it public in the repository's package settings.
+The image can be pulled anonymously. If pulls start requiring authentication, set
+the package visibility to Public: profile → **Packages** → `timed-petri-nets` →
+**Package settings** → **Danger Zone** → **Change visibility**.
 
 ## License
 
