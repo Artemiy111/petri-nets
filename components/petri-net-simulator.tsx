@@ -38,6 +38,7 @@ import NodeEditContent from './node-edit-content'
 import EdgeEditContent from './edge-edit-content'
 import { DisplaySettingsProvider } from './display-settings'
 import { usePetriNet } from '@/hooks/use-petri-net'
+import { reportError } from '@/lib/monitoring'
 import type { PetriEdge as PetriEdgeType, PetriNode } from '@/lib/petri-net'
 
 type EditMenu =
@@ -178,7 +179,7 @@ export default function PetriNetSimulator() {
         description: 'Your Petri net model has been exported as JSON.',
       })
     } catch (error) {
-      console.error('Export failed:', error)
+      reportError(error, { action: 'export-model' })
       toast.error('Export failed', {
         description: 'There was an error exporting your model.',
       })
@@ -211,7 +212,7 @@ export default function PetriNetSimulator() {
           })
         }
       } catch (error) {
-        console.error('Import failed:', error)
+        reportError(error, { action: 'import-model' })
         toast.error('Import failed', {
           description: 'The selected file is not a valid Petri net model.',
         })

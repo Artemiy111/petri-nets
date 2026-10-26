@@ -15,6 +15,7 @@ import {
   removeTokensFromInputs,
   addTokensToOutputs,
 } from "@/lib/petri-net"
+import { reportError } from "@/lib/monitoring"
 
 export type { PetriNode, PetriNodePosition, PetriNodeTransition, PetriEdge } from "@/lib/petri-net"
 
@@ -373,7 +374,7 @@ export function usePetriNet() {
 
       return true
     } catch (error) {
-      console.error("Import failed:", error)
+      reportError(error, { action: "import-model-parse" })
       return false
     }
   }
