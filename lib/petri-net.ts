@@ -1,11 +1,11 @@
-import { PetriEdge, PetriNode } from '@/hooks/use-petri-net'
-import type { Node, Edge } from "@xyflow/react"
+import type { Edge, Node } from "@xyflow/react"
 
+export type LabelPosition = "top" | "right" | "bottom" | "left"
 
 export type PositionData = {
   tokens: number
   label?: string
-  labelPosition?: "top" | "right" | "bottom" | "left"
+  labelPosition?: LabelPosition
   number?: number
 }
 
@@ -16,7 +16,7 @@ export type TransitionData = {
   delay: number
   activationTime?: number
   label?: string
-  labelPosition?: "top" | "right" | "bottom" | "left"
+  labelPosition?: LabelPosition
   number: number
   // Поле для отслеживания состояния "метки забраны, но еще не добавлены"
   tokensRemoved: boolean
@@ -25,8 +25,13 @@ export type TransitionData = {
 export type ArcData = {
   weight: number
   label?: string
-  labelPosition?: "top" | "right" | "bottom" | "left"
+  labelPosition?: LabelPosition
 }
+
+export type PetriNode = Node<PositionData | TransitionData>
+export type PetriNodePosition = Node<PositionData>
+export type PetriNodeTransition = Node<TransitionData>
+export type PetriEdge = Edge<ArcData>
 
 export type PetriNetModel = {
   nodes: PetriNode[]
@@ -58,41 +63,43 @@ export function canTransitionFire(
   })
 }
 
-// Обновление состояния переходов: какие могут сработать
-export function updateTransitionStates(
+// Изменение меток в позициях, связанных с переходом (in — забираем, out — добавляем)
+function adjustAdjacentPositions(
+  transitionId: string,
   nodes: PetriNode[],
   edges: PetriEdge[],
+  direction: "in" | "out",
 ): PetriNode[] {
-  // Создаём новый массив для отслеживания переходов, которые нужно обновить
-  const updatedNodes = nodes.map((someNode) => {
-    if (someNode.type !== "transition") return someNode as Node<PositionData>
-    const node = someNode as Node<TransitionData>
-    // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
-    if (node.data.waiting && node.data.tokensRemoved) return node
+  const transitionNode = nodes.find((node) => node.id === transitionId)
+  if (!transitionNode || transitionNode.type !== "transition") return nodes
 
-    // Проверим, может ли переход сработать (все входные позиции имеют достаточно токенов)
-    const canFire = canTransitionFire(node.id, nodes, edges)
+  // Суммируем веса всех дуг, ведущих в/из одной позиции
+  const weightByPosition = new Map<string, number>()
 
-    // Обновим только если состояние canFire изменилось
+  edges.forEach((edge) => {
+    const [positionId, edgeTransitionId] =
+      direction === "in" ? [edge.source, edge.target] : [edge.target, edge.source]
 
-    if ('canFire' in node.data && canFire !== node.data.canFire) {
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          canFire,
-          // Если переход больше не может сработать и не в состоянии ожидания, сбросим все флаги
-          waiting: node.data.waiting && canFire ? node.data.waiting : false,
-          activationTime: node.data.waiting && canFire ? node.data.activationTime : undefined,
-          tokensRemoved: node.data.waiting && canFire ? node.data.tokensRemoved : false,
-        },
-      }
-    }
+    if (edgeTransitionId !== transitionId) return
+    if (nodes.find((node) => node.id === positionId)?.type !== "position") return
 
-    return node
+    weightByPosition.set(positionId, (weightByPosition.get(positionId) ?? 0) + (edge.data?.weight || 1))
   })
 
-  return updatedNodes
+  const sign = direction === "in" ? -1 : 1
+
+  return nodes.map((node) => {
+    const weight = weightByPosition.get(node.id)
+    if (!weight) return node
+
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        tokens: ((node.data as PositionData).tokens || 0) + sign * weight,
+      },
+    }
+  })
 }
 
 // Функция для удаления меток из входных позиций
@@ -101,46 +108,17 @@ export function removeTokensFromInputs(
   nodes: PetriNode[],
   edges: PetriEdge[],
 ): PetriNode[] {
-  // Найдём переход
-  const transitionNode = nodes.find((node) => node.id === transitionId)
-  if (!transitionNode || transitionNode.type !== "transition") return nodes
-
-  // Найдём входящие дуги (от позиций к этому переходу)
-  const inputEdges = edges.filter(
-    (edge) => edge.target === transitionId && nodes.find((n) => n.id === edge.source)?.type === "position",
+  return adjustAdjacentPositions(transitionId, nodes, edges, "in").map((node) =>
+    node.id === transitionId
+      ? {
+          ...node,
+          data: {
+            ...node.data,
+            tokensRemoved: true,
+          },
+        }
+      : node,
   )
-
-  // Удалим метки из входных позиций
-  const updatedNodes = [...nodes]
-
-  inputEdges.forEach((edge) => {
-    const sourceNodeIndex = updatedNodes.findIndex((node) => node.id === edge.source)
-    if (sourceNodeIndex === -1) return
-
-    const weight = edge.data?.weight || 1
-    const nodeData = updatedNodes[sourceNodeIndex].data as PositionData
-    updatedNodes[sourceNodeIndex] = {
-      ...updatedNodes[sourceNodeIndex],
-      data: {
-        ...nodeData,
-        tokens: (nodeData.tokens || 0) - weight,
-      },
-    }
-  })
-
-  // Отметим переход как "метки забраны"
-  const nodeIndex = updatedNodes.findIndex((node) => node.id === transitionId)
-  if (nodeIndex !== -1) {
-    updatedNodes[nodeIndex] = {
-      ...updatedNodes[nodeIndex],
-      data: {
-        ...updatedNodes[nodeIndex].data,
-        tokensRemoved: true,
-      },
-    }
-  }
-
-  return updatedNodes
 }
 
 // Функция для добавления меток в выходные позиции
@@ -149,53 +127,11 @@ export function addTokensToOutputs(
   nodes: PetriNode[],
   edges: PetriEdge[],
 ): PetriNode[] {
-  // Найдём переход
-  const transitionNode = nodes.find((node) => node.id === transitionId)
-  if (!transitionNode || transitionNode.type !== "transition") return nodes
-
-  // Найдём выходящие дуги (от этого перехода к позициям)
-  const outputEdges = edges.filter(
-    (edge) => edge.source === transitionId && nodes.find((n) => n.id === edge.target)?.type === "position",
-  )
-
-  // Добавим метки в выходные позиции
-  const updatedNodes = [...nodes]
-
-  outputEdges.forEach((edge) => {
-    const targetNodeIndex = updatedNodes.findIndex((node) => node.id === edge.target)
-    if (targetNodeIndex === -1) return
-
-    const weight = edge.data?.weight || 1
-    const nodeData = updatedNodes[targetNodeIndex].data as PositionData
-    updatedNodes[targetNodeIndex] = {
-      ...updatedNodes[targetNodeIndex],
-      data: {
-        ...nodeData,
-        tokens: (nodeData.tokens || 0) + weight,
-      },
-    }
-  })
-
-  // Сбросим состояние перехода
-  const nodeIndex = updatedNodes.findIndex((node) => node.id === transitionId)
-  if (nodeIndex !== -1) {
-    updatedNodes[nodeIndex] = {
-      ...updatedNodes[nodeIndex],
-      data: {
-        ...updatedNodes[nodeIndex].data,
-        firing: true,
-        waiting: false,
-        activationTime: undefined,
-        tokensRemoved: false,
-      },
-    }
-  }
-
-  return updatedNodes
+  return adjustAdjacentPositions(transitionId, nodes, edges, "out")
 }
 
 // Экспорт модели в JSON
-export function exportModel(nodes: Node<PositionData | TransitionData>[], edges: Edge<ArcData>[]): string {
+export function exportModel(nodes: PetriNode[], edges: PetriEdge[]): string {
   const model: PetriNetModel = {
     nodes,
     edges,

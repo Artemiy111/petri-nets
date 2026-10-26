@@ -1,11 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { type Connection, type Edge, type Node, addEdge, useNodesState, useEdgesState, MarkerType } from "@xyflow/react"
+import { type Connection, type Edge, addEdge, useNodesState, useEdgesState, MarkerType } from "@xyflow/react"
 import {
+  type ArcData,
+  type PetriEdge,
+  type PetriNode,
+  type PetriNodeTransition,
   type PositionData,
   type TransitionData,
-  type ArcData,
   exportModel as exportModelUtil,
   importModel as importModelUtil,
   canTransitionFire,
@@ -13,10 +16,7 @@ import {
   addTokensToOutputs,
 } from "@/lib/petri-net"
 
-export type PetriNode = Node<PositionData | TransitionData>
-export type PetriNodePosition = Node<PositionData>
-export type PetriNodeTransition = Node<TransitionData>
-export type PetriEdge = Edge<ArcData>
+export type { PetriNode, PetriNodePosition, PetriNodeTransition, PetriEdge } from "@/lib/petri-net"
 
 export function usePetriNet() {
   // Состояние узлов и рёбер с правильной типизацией
@@ -34,9 +34,6 @@ export function usePetriNet() {
   // Счётчик узлов для уникальных ID
   const nodeIdCounter = useRef(0)
 
-  // Ref, отслеживающий, происходит ли сейчас обновление
-  const isUpdatingRef = useRef(false)
-
   // Функции таймера
   const incrementTime = () => {
     setTime((prevTime) => prevTime + 1)
@@ -47,138 +44,99 @@ export function usePetriNet() {
   }
 
   // Пересчёт номеров узлов на основе их типа и позиции в массиве
-  const recalculateNodeNumbers = (nodeArray: PetriNode[]) => {
+  const recalculateNodeNumbers = useCallback((nodeArray: PetriNode[]) => {
     let positionIndex = 0
     let transitionIndex = 0
 
     return nodeArray.map((node) => {
       if (node.type === "position") {
-        const newData = {
-          ...node.data,
-          number: positionIndex++,
-        }
-        return { ...node, data: newData }
-      } else if (node.type === "transition") {
-        const newData = {
-          ...node.data,
-          number: transitionIndex++,
-        }
-        return { ...node, data: newData }
+        return { ...node, data: { ...node.data, number: positionIndex++ } }
+      }
+      if (node.type === "transition") {
+        return { ...node, data: { ...node.data, number: transitionIndex++ } }
       }
       return node
     })
-  }
-
-  // Обновляем номера узлов при изменении массива узлов
-  useEffect(() => {
-    if (nodes.length > 0) {
-      const updatedNodes = recalculateNodeNumbers([...nodes])
-      // Проверяем, изменились ли номера
-      const hasChanges = updatedNodes.some((newNode, index) => {
-        if (index >= nodes.length) return false
-        return newNode.data.number !== nodes[index].data.number
-      })
-
-      if (hasChanges) {
-        setNodes(updatedNodes)
-      }
-    }
-  }, [nodes, recalculateNodeNumbers, setNodes])
+  }, [])
 
   const saveInitialState = () => {
-    const clonedNodes = structuredClone(nodes)
-    const clonedEdges = structuredClone(edges)
-
-    setInitialNodes(clonedNodes)
-    setInitialEdges(clonedEdges)
+    setInitialNodes(structuredClone(nodes))
+    setInitialEdges(structuredClone(edges))
     setIsInitialStateSaved(true)
 
     return true // Возвращаем true для подтверждения успешного сохранения
   }
 
   const resetToInitialState = () => {
-    if (isInitialStateSaved) {
-      const clonedNodes = structuredClone(initialNodes)
-      const clonedEdges = structuredClone(initialEdges)
+    if (!isInitialStateSaved) return false
 
-      // Пересчитываем номера узлов
-      const updatedNodes = recalculateNodeNumbers(clonedNodes)
+    setNodes(recalculateNodeNumbers(structuredClone(initialNodes)))
+    setEdges(structuredClone(initialEdges))
+    resetTimer()
 
-      setNodes(updatedNodes)
-      setEdges(clonedEdges)
-      resetTimer()
-
-      return true // Возвращаем true для подтверждения успешного восстановления
-    }
-    return false
+    return true // Возвращаем true для подтверждения успешного восстановления
   }
 
   // Обновляем состояния переходов при изменении меток или рёбер
   useEffect(() => {
-    // Предотвращаем бесконечные циклы обновления
-    if (!isUpdatingRef.current) {
-      isUpdatingRef.current = true
+    const updatedNodes = nodes.map((someNode) => {
+      if (someNode.type !== "transition") return someNode
+      const node = someNode as PetriNodeTransition
+      // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
+      if (node.data.waiting && node.data.tokensRemoved) return node
 
-      const updatedNodes = nodes.map((someNode) => {
-        if (someNode.type !== "transition") return someNode
-        const node = someNode as PetriNodeTransition
-        // Если переход уже в состоянии ожидания и метки уже забраны, не меняем его состояние
-        if (node.data.waiting && node.data.tokensRemoved) return node
+      const canFire = canTransitionFire(node.id, nodes, edges)
 
-        const canFire = canTransitionFire(node.id, nodes, edges)
+      // Обрабатываем активацию перехода и состояние ожидания
+      const currentData = node.data as TransitionData
 
-        // Обрабатываем активацию перехода и состояние ожидания
-        const currentData = node.data as TransitionData
-
-        // Если переход только что стал активным
-        if (canFire && !currentData.canFire) {
-          return {
-            ...node,
-            data: {
-              ...currentData,
-              canFire: true,
-            },
-          }
+      // Если переход только что стал активным
+      if (canFire && !currentData.canFire) {
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            canFire: true,
+          },
         }
-
-        // Если переход больше не активен и не находится в состоянии ожидания
-        if (!canFire && currentData.canFire && !currentData.waiting) {
-          return {
-            ...node,
-            data: {
-              ...currentData,
-              canFire: false,
-            },
-          }
-        }
-
-        // Если переход больше не активен, но находится в состоянии ожидания и метки уже забраны
-        // Это не должно происходить в нормальной ситуации, но обработаем на всякий случай
-        if (!canFire && currentData.waiting && currentData.tokensRemoved) {
-          return node
-        }
-
-        return node
-      })
-
-      // Обновляем состояние, только если есть изменения
-      const hasChanges = updatedNodes.some((newNode, index) => {
-        if (index >= nodes.length) return false
-        const oldData = nodes[index].data
-        const newData = newNode.data
-        return (
-          newData.canFire !== oldData.canFire ||
-          newData.waiting !== oldData.waiting ||
-          newData.activationTime !== oldData.activationTime ||
-          newData.tokensRemoved !== oldData.tokensRemoved
-        )
-      })
-
-      if (hasChanges) {
-        setNodes(updatedNodes)
       }
 
-      isUpdatingRef.current = false
+      // Если переход больше не активен и не находится в состоянии ожидания
+      if (!canFire && currentData.canFire && !currentData.waiting) {
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            canFire: false,
+          },
+        }
+      }
+
+      // Если переход больше не активен, но находится в состоянии ожидания и метки уже забраны
+      // Это не должно происходить в нормальной ситуации, но обработаем на всякий случай
+      if (!canFire && currentData.waiting && currentData.tokensRemoved) {
+        return node
+      }
+
+      return node
+    })
+
+    // Обновляем состояние, только если есть изменения
+    const hasChanges = updatedNodes.some((newNode, index) => {
+      if (index >= nodes.length) return false
+      // Меняются только переходы, поэтому сравниваем их данные
+      const oldData = nodes[index].data as TransitionData
+      const newData = newNode.data as TransitionData
+      return (
+        newData.canFire !== oldData.canFire ||
+        newData.waiting !== oldData.waiting ||
+        newData.activationTime !== oldData.activationTime ||
+        newData.tokensRemoved !== oldData.tokensRemoved
+      )
+    })
+
+    if (hasChanges) {
+      setNodes(updatedNodes)
     }
   }, [nodes, edges, time, setNodes])
 
@@ -222,17 +180,15 @@ export function usePetriNet() {
 
     if (!isValid) return
 
+    const edgeData: ArcData = { weight: 1, label: "", labelPosition: "top" }
+
     setEdges((eds) =>
-      addEdge<Edge<ArcData>>(
+      addEdge(
         {
           ...params,
           type: "petri",
           markerEnd: { type: MarkerType.ArrowClosed },
-          data: {
-            weight: 1,
-            label: "",
-            labelPosition: "top",
-          },
+          data: edgeData,
         },
         eds,
       ),
@@ -240,7 +196,7 @@ export function usePetriNet() {
   }
 
   const createNode = (type: "position" | "transition", position: { x: number; y: number }) => {
-    let newNode: Node<PositionData | TransitionData>
+    let newNode: PetriNode
     if (type === "position") {
       newNode = {
         id: `${type}-${nodeIdCounter.current++}`,
@@ -265,14 +221,12 @@ export function usePetriNet() {
           label: "",
           labelPosition: "top",
           tokensRemoved: false,
-          number: nodes.length + 1,
+          number: 0,
         },
       }
     }
 
-    // Добавляем новый узел и пересчитываем номера
-    const updatedNodes = [...nodes, newNode]
-    setNodes(updatedNodes)
+    setNodes(recalculateNodeNumbers([...nodes, newNode]))
     return newNode
   }
 
@@ -281,7 +235,16 @@ export function usePetriNet() {
   }
 
   const updateEdgeData = (edgeId: string, data: Partial<ArcData>) => {
-    setEdges((eds) => eds.map((edge) => (edge.id === edgeId ? { ...edge, data: { ...edge.data, ...data } } : edge)))
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id === edgeId
+          ? {
+              ...edge,
+              data: { ...edge.data, ...data, weight: data.weight ?? edge.data?.weight ?? 1 },
+            }
+          : edge,
+      ),
+    )
   }
 
   const deleteNode = (nodeId: string) => {
@@ -328,18 +291,16 @@ export function usePetriNet() {
     if (delay > 0) {
       setNodes(
         updatedNodes.map((node) => {
-          if (node.id === transitionId) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                waiting: true,
-                activationTime: time,
-                tokensRemoved: true,
-              },
-            }
+          if (node.id !== transitionId) return node
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              waiting: true,
+              activationTime: time,
+              tokensRemoved: true,
+            },
           }
-          return node
         }),
       )
     } else {
@@ -352,25 +313,21 @@ export function usePetriNet() {
 
   // Завершение активации перехода - добавляем метки в выходные позиции
   const completeTransition = (transitionId: string, currentNodes = nodes) => {
-    // Добавляем метки в выходные позиции
     const updatedNodes = addTokensToOutputs(transitionId, currentNodes, edges)
 
-    // Обновляем состояние перехода
     setNodes(
       updatedNodes.map((node) => {
-        if (node.id === transitionId) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              firing: true,
-              waiting: false,
-              activationTime: undefined,
-              tokensRemoved: false,
-            },
-          }
+        if (node.id !== transitionId) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            firing: true,
+            waiting: false,
+            activationTime: undefined,
+            tokensRemoved: false,
+          },
         }
-        return node
       }),
     )
 
@@ -384,7 +341,7 @@ export function usePetriNet() {
     return true
   }
 
-  const exportModel = exportModelUtil(nodes, edges)
+  const exportModel = () => exportModelUtil(nodes, edges)
 
   const importModel = (json: string) => {
     try {
@@ -411,8 +368,7 @@ export function usePetriNet() {
 
       nodeIdCounter.current = highestId + 1
 
-      const nodesWithNumbers = recalculateNodeNumbers(updatedNodes)
-      setNodes(nodesWithNumbers)
+      setNodes(recalculateNodeNumbers(updatedNodes))
       setEdges(importedEdges)
 
       return true

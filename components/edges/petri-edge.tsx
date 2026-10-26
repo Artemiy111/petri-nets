@@ -2,8 +2,7 @@
 
 import { memo } from 'react'
 import { type EdgeProps, getBezierPath } from '@xyflow/react'
-import type { ArcData } from '@/lib/petri-net'
-import type { PetriEdge } from '@/hooks/use-petri-net'
+import type { PetriEdge } from '@/lib/petri-net'
 
 type PetriEdgeProps = EdgeProps<PetriEdge> & {
   showLabels: boolean
