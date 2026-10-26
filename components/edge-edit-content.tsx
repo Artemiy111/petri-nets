@@ -1,18 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Edge } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import type { ArcData } from '@/lib/petri-net'
+import LabelPositionSelect from '@/components/label-position-select'
+import type { ArcData, LabelPosition } from '@/lib/petri-net'
 
 interface EdgeEditContentProps {
   edge: Edge<ArcData>
@@ -21,25 +15,15 @@ interface EdgeEditContentProps {
 }
 
 export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditContentProps) {
-  const [weight, setWeight] = useState<number>(1)
-  const [label, setLabel] = useState<string>('')
-  const [labelPosition, setLabelPosition] = useState<'top' | 'right' | 'bottom' | 'left'>('top')
-
-  // Initialize local state from edge data
-  useEffect(() => {
-    if (edge) {
-      setWeight(edge.data?.weight || 1)
-      setLabel(edge.data?.label || '')
-      setLabelPosition(edge.data?.labelPosition || 'top')
-    }
-  }, [edge])
+  // Попап монтируется заново при каждом открытии, поэтому начальные значения берём из ребра
+  const [weight, setWeight] = useState(edge.data?.weight ?? 1)
+  const [label, setLabel] = useState(edge.data?.label ?? '')
+  const [labelPosition, setLabelPosition] = useState<LabelPosition>(
+    edge.data?.labelPosition ?? 'top',
+  )
 
   const handleSave = () => {
-    onUpdate(edge.id, {
-      weight,
-      label,
-      labelPosition,
-    })
+    onUpdate(edge.id, { weight, label, labelPosition })
     onClose()
   }
 
@@ -74,25 +58,7 @@ export default function EdgeEditContent({ edge, onUpdate, onClose }: EdgeEditCon
         />
       </div>
 
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="labelPosition" className="text-right">
-          Label Position
-        </Label>
-        <Select
-          value={labelPosition}
-          onValueChange={value => setLabelPosition(value as 'top' | 'right' | 'bottom' | 'left')}
-        >
-          <SelectTrigger id="labelPosition" className="col-span-3">
-            <SelectValue placeholder="Select position" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="top">Top</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
-            <SelectItem value="bottom">Bottom</SelectItem>
-            <SelectItem value="left">Left</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <LabelPositionSelect value={labelPosition} onChange={setLabelPosition} />
 
       <div className="flex justify-end mt-2">
         <Button onClick={handleSave}>Save</Button>

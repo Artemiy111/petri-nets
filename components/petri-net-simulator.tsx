@@ -2,7 +2,7 @@
 
 import type React from 'react'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -10,7 +10,7 @@ import {
   Controls,
   type NodeTypes,
   type EdgeTypes,
-  type OnInit,
+  type ReactFlowInstance,
   Panel,
   MarkerType,
 } from '@xyflow/react'
@@ -30,20 +30,25 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import PositionNode from './nodes/position-node'
 import TransitionNode from './nodes/transition-node'
 import PetriEdge from './edges/petri-edge'
 import NodeEditContent from './node-edit-content'
 import EdgeEditContent from './edge-edit-content'
 import { usePetriNet } from '@/hooks/use-petri-net'
+import type { PetriEdge as PetriEdgeType, PetriNode } from '@/lib/petri-net'
+
+type EditMenu =
+  | { type: 'node'; node: PetriNode; x: number; y: number }
+  | { type: 'edge'; edge: PetriEdgeType; x: number; y: number }
 
 export default function PetriNetSimulator() {
-  const { toast } = useToast()
-
   // Reference to the ReactFlow instance
-  const reactFlowWrapper = useRef<HTMLDivElement>(null)
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null)
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance<
+    PetriNode,
+    PetriEdgeType
+  > | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Используем наш хук для работы с сетью Петри
@@ -53,27 +58,29 @@ export default function PetriNetSimulator() {
   const [showLabels, setShowLabels] = useState(true)
   const [showNumbers, setShowNumbers] = useState(true)
 
-  // Popover states
-  const [nodePopoverOpen, setNodePopoverOpen] = useState(false)
-  const [edgePopoverOpen, setEdgePopoverOpen] = useState(false)
-  const [selectedNode, setSelectedNode] = useState<any>(null)
-  const [selectedEdge, setSelectedEdge] = useState<any>(null)
-  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 })
+  // Edit popover state
+  const [editMenu, setEditMenu] = useState<EditMenu | null>(null)
 
   // Define node types with proper typing and pass showLabels and showNumbers
-  const nodeTypes: NodeTypes = {
-    position: props => (
-      <PositionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
-    ),
-    transition: props => (
-      <TransitionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
-    ),
-  }
+  const nodeTypes = useMemo<NodeTypes>(
+    () => ({
+      position: props => (
+        <PositionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
+      ),
+      transition: props => (
+        <TransitionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
+      ),
+    }),
+    [showLabels, showNumbers],
+  )
 
   // Define edge types with proper typing and pass showLabels
-  const edgeTypes: EdgeTypes = {
-    petri: props => <PetriEdge {...props} showLabels={showLabels} />,
-  }
+  const edgeTypes = useMemo<EdgeTypes>(
+    () => ({
+      petri: props => <PetriEdge {...props} showLabels={showLabels} />,
+    }),
+    [showLabels],
+  )
 
   // Handle drag over for drag and drop from toolbar
   function onDragOver(event: React.DragEvent<HTMLDivElement>) {
@@ -85,58 +92,49 @@ export default function PetriNetSimulator() {
   function onDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault()
 
-    if (!reactFlowWrapper.current || !reactFlowInstance) return
+    if (!reactFlowInstance) return
 
-    const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect()
     const type = event.dataTransfer.getData('application/reactflow')
 
     // Check if the dropped element is valid
-    if (!type || (type !== 'position' && type !== 'transition')) return
+    if (type !== 'position' && type !== 'transition') return
 
     const position = reactFlowInstance.screenToFlowPosition({
-      x: event.clientX - reactFlowBounds.left,
-      y: event.clientY - reactFlowBounds.top,
+      x: event.clientX,
+      y: event.clientY,
     })
 
     // Создаем новый узел через хук
-    petriNet.createNode(type as 'position' | 'transition', position)
+    petriNet.createNode(type, position)
   }
 
   // Handle node right click to open edit popover
-  function onNodeContextMenu(event: React.MouseEvent, node: any) {
+  function onNodeContextMenu(event: React.MouseEvent, node: PetriNode) {
     event.preventDefault()
-    setSelectedNode(node)
-    setSelectedEdge(null)
-    setEdgePopoverOpen(false)
-    setPopoverPosition({ x: event.clientX, y: event.clientY })
-    setNodePopoverOpen(true)
+    setEditMenu({ type: 'node', node, x: event.clientX, y: event.clientY })
   }
 
   // Handle edge right click to open edit popover
-  function onEdgeContextMenu(event: React.MouseEvent, edge: any) {
+  function onEdgeContextMenu(event: React.MouseEvent, edge: PetriEdgeType) {
     event.preventDefault()
-    setSelectedEdge(edge)
-    setSelectedNode(null)
-    setNodePopoverOpen(false)
-    setPopoverPosition({ x: event.clientX, y: event.clientY })
-    setEdgePopoverOpen(true)
+    setEditMenu({ type: 'edge', edge, x: event.clientX, y: event.clientY })
   }
 
   // Handle keyboard events for deleting selected elements
   function onKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Delete') {
-      // Find selected nodes
-      const selectedNodes = petriNet.nodes.filter(node => node.selected)
-      if (selectedNodes.length > 0) {
-        selectedNodes.forEach(node => petriNet.deleteNode(node.id))
-        return
-      }
+    if (event.key !== 'Delete') return
 
-      // Find selected edges
-      const selectedEdges = petriNet.edges.filter(edge => edge.selected)
-      if (selectedEdges.length > 0) {
-        selectedEdges.forEach(edge => petriNet.deleteEdge(edge.id))
-      }
+    // Find selected nodes
+    const selectedNodes = petriNet.nodes.filter(node => node.selected)
+    if (selectedNodes.length > 0) {
+      selectedNodes.forEach(node => petriNet.deleteNode(node.id))
+      return
+    }
+
+    // Find selected edges
+    const selectedEdges = petriNet.edges.filter(edge => edge.selected)
+    if (selectedEdges.length > 0) {
+      selectedEdges.forEach(edge => petriNet.deleteEdge(edge.id))
     }
   }
 
@@ -167,11 +165,6 @@ export default function PetriNetSimulator() {
     event.dataTransfer.effectAllowed = 'move'
   }
 
-  // Handle ReactFlow initialization
-  const onInit: OnInit = instance => {
-    setReactFlowInstance(instance)
-  }
-
   // Export model to file
   function handleExport() {
     try {
@@ -185,26 +178,22 @@ export default function PetriNetSimulator() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
-      toast({
-        title: 'Model exported',
+      toast.success('Model exported', {
         description: 'Your Petri net model has been exported as JSON.',
       })
     } catch (error) {
       console.error('Export failed:', error)
-      toast({
-        title: 'Export failed',
+      toast.error('Export failed', {
         description: 'There was an error exporting your model.',
-        variant: 'destructive',
       })
     }
   }
 
   // Import model from file
   function handleImport() {
-    if (fileInputRef.current) {
-      fileInputRef.current.click()
-    }
+    fileInputRef.current?.click()
   }
 
   // Handle file selection
@@ -219,23 +208,18 @@ export default function PetriNetSimulator() {
         const success = petriNet.importModel(content)
 
         if (success) {
-          toast({
-            title: 'Model imported',
+          toast.success('Model imported', {
             description: 'Your Petri net model has been successfully imported.',
           })
         } else {
-          toast({
-            title: 'Import failed',
+          toast.error('Import failed', {
             description: 'The selected file is not a valid Petri net model.',
-            variant: 'destructive',
           })
         }
       } catch (error) {
         console.error('Import failed:', error)
-        toast({
-          title: 'Import failed',
+        toast.error('Import failed', {
           description: 'The selected file is not a valid Petri net model.',
-          variant: 'destructive',
         })
       }
     }
@@ -247,59 +231,47 @@ export default function PetriNetSimulator() {
 
   // Handle save initial state
   function handleSaveInitialState() {
-    const success = petriNet.saveInitialState()
-    if (success) {
-      toast({
-        title: 'Initial state saved',
-        description: 'You can now restore to this state at any time.',
-      })
-    }
+    petriNet.saveInitialState()
+    toast.success('Initial state saved', {
+      description: 'You can now restore to this state at any time.',
+    })
   }
 
   // Handle reset to initial state
   function handleResetToInitialState() {
-    const success = petriNet.resetToInitialState()
-    if (success) {
-      toast({
-        title: 'Initial state restored',
-        description: 'The model has been reset to the saved state.',
-      })
-    }
+    if (!petriNet.resetToInitialState()) return
+
+    toast.success('Initial state restored', {
+      description: 'The model has been reset to the saved state.',
+    })
   }
 
   // Handle reset canvas
   function handleResetCanvas() {
     petriNet.resetCanvas()
-    toast({
-      title: 'Canvas reset',
+    toast.success('Canvas reset', {
       description: 'All elements have been removed.',
     })
   }
 
-  // Close popovers when clicking outside
-  function onPaneClick() {
-    setNodePopoverOpen(false)
-    setEdgePopoverOpen(false)
-  }
-
   return (
-    <div className="w-full h-screen">
+    <div className="h-screen w-full">
       <ReactFlowProvider>
-        <div className="w-full h-full" ref={reactFlowWrapper}>
+        <div className="h-full w-full">
           <ReactFlow
             nodes={petriNet.nodes}
             edges={petriNet.edges}
             onNodesChange={petriNet.onNodesChange}
             onEdgesChange={petriNet.onEdgesChange}
             onConnect={petriNet.onConnect}
-            onInit={onInit}
+            onInit={setReactFlowInstance}
             onDrop={onDrop}
             onDragOver={onDragOver}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodeContextMenu={onNodeContextMenu}
             onEdgeContextMenu={onEdgeContextMenu}
-            onPaneClick={onPaneClick}
+            onPaneClick={() => setEditMenu(null)}
             fitView
             snapToGrid
             snapGrid={[15, 15]}
@@ -312,67 +284,54 @@ export default function PetriNetSimulator() {
           >
             <Background />
             <Controls />
-            <Panel position="top-left" className="bg-white p-2 rounded-md shadow-md">
-              <div className="flex gap-2 flex-wrap">
+            <Panel position="top-left" className="rounded-md bg-background p-2 shadow-md">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
                   draggable
                   onDragStart={event => onDragStart(event, 'position')}
                 >
-                  <CircleIcon className="h-4 w-4" />
+                  <CircleIcon />
                   Position
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
                   draggable
                   onDragStart={event => onDragStart(event, 'transition')}
                 >
-                  <SquareIcon className="h-4 w-4" />
+                  <SquareIcon />
                   Transition
                 </Button>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={handleResetCanvas}
-                >
-                  <RefreshCwIcon className="h-4 w-4" />
+                <Button variant="outline" onClick={handleResetCanvas}>
+                  <RefreshCwIcon />
                   Reset
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
                   onClick={handleSaveInitialState}
                   disabled={petriNet.nodes.length === 0}
                 >
-                  <SaveIcon className="h-4 w-4" />
+                  <SaveIcon />
                   Save State
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
                   onClick={handleResetToInitialState}
                   disabled={!petriNet.isInitialStateSaved}
                 >
-                  <RotateCcwIcon className="h-4 w-4" />
+                  <RotateCcwIcon />
                   Restore State
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex items-center gap-2"
                   onClick={handleExport}
                   disabled={petriNet.nodes.length === 0}
                 >
-                  <DownloadIcon className="h-4 w-4" />
+                  <DownloadIcon />
                   Export
                 </Button>
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={handleImport}
-                >
-                  <UploadIcon className="h-4 w-4" />
+                <Button variant="outline" onClick={handleImport}>
+                  <UploadIcon />
                   Import
                 </Button>
                 <input
@@ -386,9 +345,9 @@ export default function PetriNetSimulator() {
             </Panel>
 
             {/* Timer Panel */}
-            <Panel position="bottom-center" className="bg-white p-2 rounded-md shadow-md mb-2">
+            <Panel position="bottom-center" className="mb-2 rounded-md bg-background p-2 shadow-md">
               <div className="flex items-center gap-2">
-                <ClockIcon className="h-4 w-4" />
+                <ClockIcon className="size-4" />
                 <span className="font-mono text-lg">Time: {petriNet.time} u.t.</span>
                 <div className="flex gap-1">
                   <Button variant="outline" size="sm" onClick={petriNet.incrementTime}>
@@ -402,11 +361,11 @@ export default function PetriNetSimulator() {
             </Panel>
 
             {/* Settings Panel */}
-            <Panel position="top-right" className="mr-2 mt-2">
+            <Panel position="top-right" className="mt-2 mr-2">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="icon">
-                    <SettingsIcon className="h-4 w-4" />
+                    <SettingsIcon />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-60">
@@ -436,37 +395,25 @@ export default function PetriNetSimulator() {
         </div>
       </ReactFlowProvider>
 
-      {/* Node Edit Popover */}
-      {nodePopoverOpen && selectedNode && (
+      {/* Edit Popover for the node or edge selected with the right mouse button */}
+      {editMenu && (
         <div
-          className="fixed z-[9999] bg-white rounded-md shadow-lg p-4 border border-gray-200"
-          style={{
-            left: `${popoverPosition.x}px`,
-            top: `${popoverPosition.y}px`,
-          }}
+          className="fixed z-50 min-w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-lg"
+          style={{ left: `${editMenu.x}px`, top: `${editMenu.y}px` }}
         >
-          <NodeEditContent
-            node={selectedNode}
-            onUpdate={petriNet.updateNodeData}
-            onClose={() => setNodePopoverOpen(false)}
-          />
-        </div>
-      )}
-
-      {/* Edge Edit Popover */}
-      {edgePopoverOpen && selectedEdge && (
-        <div
-          className="fixed z-[9999] bg-white rounded-md shadow-lg p-4 border border-gray-200"
-          style={{
-            left: `${popoverPosition.x}px`,
-            top: `${popoverPosition.y}px`,
-          }}
-        >
-          <EdgeEditContent
-            edge={selectedEdge}
-            onUpdate={petriNet.updateEdgeData}
-            onClose={() => setEdgePopoverOpen(false)}
-          />
+          {editMenu.type === 'node' ? (
+            <NodeEditContent
+              node={editMenu.node}
+              onUpdate={petriNet.updateNodeData}
+              onClose={() => setEditMenu(null)}
+            />
+          ) : (
+            <EdgeEditContent
+              edge={editMenu.edge}
+              onUpdate={petriNet.updateEdgeData}
+              onClose={() => setEditMenu(null)}
+            />
+          )}
         </div>
       )}
     </div>

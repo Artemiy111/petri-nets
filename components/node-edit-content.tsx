@@ -1,18 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Node } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import type { PositionData, TransitionData } from '@/lib/petri-net'
+import LabelPositionSelect from '@/components/label-position-select'
+import type { LabelPosition, PositionData, TransitionData } from '@/lib/petri-net'
 
 interface NodeEditContentProps {
   node: Node<PositionData | TransitionData>
@@ -21,45 +15,33 @@ interface NodeEditContentProps {
 }
 
 export default function NodeEditContent({ node, onUpdate, onClose }: NodeEditContentProps) {
-  const [tokens, setTokens] = useState<number>(0)
-  const [delay, setDelay] = useState<number>(0)
-  const [label, setLabel] = useState<string>('')
-  const [labelPosition, setLabelPosition] = useState<'top' | 'right' | 'bottom' | 'left'>('top')
+  const isPosition = node.type === 'position'
 
-  // Initialize local state from node data
-  useEffect(() => {
-    if (node) {
-      if (node.type === 'position') {
-        setTokens((node.data as PositionData).tokens || 0)
-      } else if (node.type === 'transition') {
-        setDelay((node.data as TransitionData).delay || 0)
-      }
-      setLabel(node.data.label || '')
-      setLabelPosition(node.data.labelPosition || 'top')
-    }
-  }, [node])
+  // Попап монтируется заново при каждом открытии, поэтому начальные значения берём из узла
+  const [tokens, setTokens] = useState(() =>
+    isPosition ? ((node.data as PositionData).tokens ?? 0) : 0,
+  )
+  const [delay, setDelay] = useState(() =>
+    isPosition ? 0 : ((node.data as TransitionData).delay ?? 0),
+  )
+  const [label, setLabel] = useState(node.data.label ?? '')
+  const [labelPosition, setLabelPosition] = useState<LabelPosition>(
+    node.data.labelPosition ?? 'top',
+  )
 
   const handleSave = () => {
-    const updatedData: Partial<PositionData | TransitionData> = {
-      label,
-      labelPosition,
-    }
-
-    if (node.type === 'position') {
-      updatedData.tokens = tokens
-    } else if (node.type === 'transition') {
-      updatedData.delay = delay
-    }
-
-    onUpdate(node.id, updatedData)
+    onUpdate(
+      node.id,
+      isPosition ? { tokens, label, labelPosition } : { delay, label, labelPosition },
+    )
     onClose()
   }
 
   return (
     <div className="grid gap-4 py-2">
-      <h3 className="font-medium">Edit {node.type === 'position' ? 'Position' : 'Transition'}</h3>
+      <h3 className="font-medium">Edit {isPosition ? 'Position' : 'Transition'}</h3>
 
-      {node.type === 'position' && (
+      {isPosition ? (
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="tokens" className="text-right">
             Tokens
@@ -73,9 +55,7 @@ export default function NodeEditContent({ node, onUpdate, onClose }: NodeEditCon
             className="col-span-3"
           />
         </div>
-      )}
-
-      {node.type === 'transition' && (
+      ) : (
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="delay" className="text-right">
             Delay
@@ -105,25 +85,7 @@ export default function NodeEditContent({ node, onUpdate, onClose }: NodeEditCon
         />
       </div>
 
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="labelPosition" className="text-right">
-          Label Position
-        </Label>
-        <Select
-          value={labelPosition}
-          onValueChange={value => setLabelPosition(value as 'top' | 'right' | 'bottom' | 'left')}
-        >
-          <SelectTrigger id="labelPosition" className="col-span-3">
-            <SelectValue placeholder="Select position" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="top">Top</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
-            <SelectItem value="bottom">Bottom</SelectItem>
-            <SelectItem value="left">Left</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <LabelPositionSelect value={labelPosition} onChange={setLabelPosition} />
 
       <div className="flex justify-end mt-2">
         <Button onClick={handleSave}>Save</Button>
