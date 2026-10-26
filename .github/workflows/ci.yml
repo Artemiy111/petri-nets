@@ -75,6 +75,8 @@ jobs:
           context: .
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            SENTRY_RELEASE=${{ github.sha }}
           tags: ghcr.io/artemiy111/timed-petri-nets:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

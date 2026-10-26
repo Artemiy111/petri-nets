@@ -70,9 +70,14 @@ docker compose logs -f app | grep web-vital
 ```
 
 Errors are reported from the React error boundaries (`app/error.tsx`,
-`app/global-error.tsx`) and from model import/export failures. Note that without
-uploaded source maps GlitchTip shows minified stack traces; see the
-`sentry-cli sourcemaps upload` docs if you want readable frames.
+`app/global-error.tsx`) and from model import/export failures.
+
+The image ships browser source maps and `SENTRY_RELEASE` set to the commit SHA,
+so every event carries a release. The maps themselves are uploaded by the
+deployment: a job in the homelab cluster runs `sentry-cli sourcemaps upload`
+against that release, because the GlitchTip instance is not reachable from
+GitHub runners. Without that upload GlitchTip still shows minified frames — the
+maps in the image are only the input for it.
 
 ## License
 

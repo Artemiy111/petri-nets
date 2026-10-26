@@ -31,6 +31,9 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=bun:bun /app/.next/standalone ./
 COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
+ARG SENTRY_RELEASE
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
+
 USER bun
 EXPOSE 3000
 
