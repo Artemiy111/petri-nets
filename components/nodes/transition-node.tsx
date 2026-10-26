@@ -5,14 +5,11 @@ import type React from 'react'
 import { memo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import type { PetriNodeTransition } from '@/lib/petri-net'
+import { useDisplaySettings } from '@/components/display-settings'
 import { NodeHandles, NodeLabel, NodeNumber } from './node-chrome'
 
-export type TransitionNodeProps = NodeProps<PetriNodeTransition> & {
-  showLabels: boolean
-  showNumbers: boolean
-}
-
-function TransitionNode({ data, id, selected, showLabels, showNumbers }: TransitionNodeProps) {
+function TransitionNode({ data, id, selected }: NodeProps<PetriNodeTransition>) {
+  const { showLabels, showNumbers } = useDisplaySettings()
   const isFiring = data.firing || false
   const canFire = data.canFire || false
   const isWaiting = data.waiting || false

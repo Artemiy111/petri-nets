@@ -3,14 +3,11 @@
 import { memo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import type { PetriNodePosition } from '@/lib/petri-net'
+import { useDisplaySettings } from '@/components/display-settings'
 import { NodeHandles, NodeLabel, NodeNumber } from './node-chrome'
 
-type PositionNodeProps = NodeProps<PetriNodePosition> & {
-  showLabels: boolean
-  showNumbers: boolean
-}
-
-function PositionNode({ data, selected, showLabels, showNumbers }: PositionNodeProps) {
+function PositionNode({ data, selected }: NodeProps<PetriNodePosition>) {
+  const { showLabels, showNumbers } = useDisplaySettings()
   const tokens = data.tokens || 0
   const label = data.label || ''
   const labelPosition = data.labelPosition || 'top'
