@@ -36,12 +36,23 @@ import TransitionNode from './nodes/transition-node'
 import PetriEdge from './edges/petri-edge'
 import NodeEditContent from './node-edit-content'
 import EdgeEditContent from './edge-edit-content'
+import { DisplaySettingsProvider } from './display-settings'
 import { usePetriNet } from '@/hooks/use-petri-net'
 import type { PetriEdge as PetriEdgeType, PetriNode } from '@/lib/petri-net'
 
 type EditMenu =
   | { type: 'node'; node: PetriNode; x: number; y: number }
   | { type: 'edge'; edge: PetriEdgeType; x: number; y: number }
+
+// Stable type maps: React Flow compares component identity on every render
+const nodeTypes: NodeTypes = {
+  position: PositionNode,
+  transition: TransitionNode,
+}
+
+const edgeTypes: EdgeTypes = {
+  petri: PetriEdge,
+}
 
 export default function PetriNetSimulator() {
   // Reference to the ReactFlow instance
@@ -57,30 +68,13 @@ export default function PetriNetSimulator() {
   // Settings state
   const [showLabels, setShowLabels] = useState(true)
   const [showNumbers, setShowNumbers] = useState(true)
-
-  // Edit popover state
-  const [editMenu, setEditMenu] = useState<EditMenu | null>(null)
-
-  // Define node types with proper typing and pass showLabels and showNumbers
-  const nodeTypes = useMemo<NodeTypes>(
-    () => ({
-      position: props => (
-        <PositionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
-      ),
-      transition: props => (
-        <TransitionNode {...props} showLabels={showLabels} showNumbers={showNumbers} />
-      ),
-    }),
+  const displaySettings = useMemo(
+    () => ({ showLabels, showNumbers }),
     [showLabels, showNumbers],
   )
 
-  // Define edge types with proper typing and pass showLabels
-  const edgeTypes = useMemo<EdgeTypes>(
-    () => ({
-      petri: props => <PetriEdge {...props} showLabels={showLabels} />,
-    }),
-    [showLabels],
-  )
+  // Edit popover state
+  const [editMenu, setEditMenu] = useState<EditMenu | null>(null)
 
   // Handle drag over for drag and drop from toolbar
   function onDragOver(event: React.DragEvent<HTMLDivElement>) {
@@ -257,142 +251,144 @@ export default function PetriNetSimulator() {
   return (
     <div className="h-screen w-full">
       <ReactFlowProvider>
-        <div className="h-full w-full">
-          <ReactFlow
-            nodes={petriNet.nodes}
-            edges={petriNet.edges}
-            onNodesChange={petriNet.onNodesChange}
-            onEdgesChange={petriNet.onEdgesChange}
-            onConnect={petriNet.onConnect}
-            onInit={setReactFlowInstance}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodeContextMenu={onNodeContextMenu}
-            onEdgeContextMenu={onEdgeContextMenu}
-            onPaneClick={() => setEditMenu(null)}
-            fitView
-            snapToGrid
-            snapGrid={[15, 15]}
-            connectionLineStyle={{ stroke: '#000', strokeWidth: 2 }}
-            defaultEdgeOptions={{
-              type: 'petri',
-              markerEnd: { type: MarkerType.ArrowClosed },
-            }}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background />
-            <Controls />
-            <Panel position="top-left" className="rounded-md bg-background p-2 shadow-md">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  draggable
-                  onDragStart={event => onDragStart(event, 'position')}
-                >
-                  <CircleIcon />
-                  Position
-                </Button>
-                <Button
-                  variant="outline"
-                  draggable
-                  onDragStart={event => onDragStart(event, 'transition')}
-                >
-                  <SquareIcon />
-                  Transition
-                </Button>
-                <Button variant="outline" onClick={handleResetCanvas}>
-                  <RefreshCwIcon />
-                  Reset
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleSaveInitialState}
-                  disabled={petriNet.nodes.length === 0}
-                >
-                  <SaveIcon />
-                  Save State
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleResetToInitialState}
-                  disabled={!petriNet.isInitialStateSaved}
-                >
-                  <RotateCcwIcon />
-                  Restore State
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleExport}
-                  disabled={petriNet.nodes.length === 0}
-                >
-                  <DownloadIcon />
-                  Export
-                </Button>
-                <Button variant="outline" onClick={handleImport}>
-                  <UploadIcon />
-                  Import
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept=".json"
-                  className="hidden"
-                />
-              </div>
-            </Panel>
-
-            {/* Timer Panel */}
-            <Panel position="bottom-center" className="mb-2 rounded-md bg-background p-2 shadow-md">
-              <div className="flex items-center gap-2">
-                <ClockIcon className="size-4" />
-                <span className="font-mono text-lg">Time: {petriNet.time} u.t.</span>
-                <div className="flex gap-1">
-                  <Button variant="outline" size="sm" onClick={petriNet.incrementTime}>
-                    +1
+        <DisplaySettingsProvider value={displaySettings}>
+          <div className="h-full w-full">
+            <ReactFlow
+              nodes={petriNet.nodes}
+              edges={petriNet.edges}
+              onNodesChange={petriNet.onNodesChange}
+              onEdgesChange={petriNet.onEdgesChange}
+              onConnect={petriNet.onConnect}
+              onInit={setReactFlowInstance}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onNodeContextMenu={onNodeContextMenu}
+              onEdgeContextMenu={onEdgeContextMenu}
+              onPaneClick={() => setEditMenu(null)}
+              fitView
+              snapToGrid
+              snapGrid={[15, 15]}
+              connectionLineStyle={{ stroke: '#000', strokeWidth: 2 }}
+              defaultEdgeOptions={{
+                type: 'petri',
+                markerEnd: { type: MarkerType.ArrowClosed },
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+              <Controls />
+              <Panel position="top-left" className="rounded-md bg-background p-2 shadow-md">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    draggable
+                    onDragStart={event => onDragStart(event, 'position')}
+                  >
+                    <CircleIcon />
+                    Position
                   </Button>
-                  <Button variant="outline" size="sm" onClick={petriNet.resetTimer}>
+                  <Button
+                    variant="outline"
+                    draggable
+                    onDragStart={event => onDragStart(event, 'transition')}
+                  >
+                    <SquareIcon />
+                    Transition
+                  </Button>
+                  <Button variant="outline" onClick={handleResetCanvas}>
+                    <RefreshCwIcon />
                     Reset
                   </Button>
-                </div>
-              </div>
-            </Panel>
-
-            {/* Settings Panel */}
-            <Panel position="top-right" className="mt-2 mr-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <SettingsIcon />
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveInitialState}
+                    disabled={petriNet.nodes.length === 0}
+                  >
+                    <SaveIcon />
+                    Save State
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-60">
-                  <div className="flex flex-col gap-4">
-                    <h3 className="font-medium">Display Settings</h3>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="show-labels">Show Labels</Label>
-                      <Switch
-                        id="show-labels"
-                        checked={showLabels}
-                        onCheckedChange={setShowLabels}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="show-numbers">Show Numbers</Label>
-                      <Switch
-                        id="show-numbers"
-                        checked={showNumbers}
-                        onCheckedChange={setShowNumbers}
-                      />
-                    </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleResetToInitialState}
+                    disabled={!petriNet.isInitialStateSaved}
+                  >
+                    <RotateCcwIcon />
+                    Restore State
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={petriNet.nodes.length === 0}
+                  >
+                    <DownloadIcon />
+                    Export
+                  </Button>
+                  <Button variant="outline" onClick={handleImport}>
+                    <UploadIcon />
+                    Import
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".json"
+                    className="hidden"
+                  />
+                </div>
+              </Panel>
+
+              {/* Timer Panel */}
+              <Panel position="bottom-center" className="mb-2 rounded-md bg-background p-2 shadow-md">
+                <div className="flex items-center gap-2">
+                  <ClockIcon className="size-4" />
+                  <span className="font-mono text-lg">Time: {petriNet.time} u.t.</span>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={petriNet.incrementTime}>
+                      +1
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={petriNet.resetTimer}>
+                      Reset
+                    </Button>
                   </div>
-                </PopoverContent>
-              </Popover>
-            </Panel>
-          </ReactFlow>
-        </div>
+                </div>
+              </Panel>
+
+              {/* Settings Panel */}
+              <Panel position="top-right" className="mt-2 mr-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <SettingsIcon />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-60">
+                    <div className="flex flex-col gap-4">
+                      <h3 className="font-medium">Display Settings</h3>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="show-labels">Show Labels</Label>
+                        <Switch
+                          id="show-labels"
+                          checked={showLabels}
+                          onCheckedChange={setShowLabels}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="show-numbers">Show Numbers</Label>
+                        <Switch
+                          id="show-numbers"
+                          checked={showNumbers}
+                          onCheckedChange={setShowNumbers}
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </Panel>
+            </ReactFlow>
+          </div>
+        </DisplaySettingsProvider>
       </ReactFlowProvider>
 
       {/* Edit Popover for the node or edge selected with the right mouse button */}

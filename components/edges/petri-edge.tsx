@@ -3,10 +3,9 @@
 import { memo } from 'react'
 import { type EdgeProps, getBezierPath } from '@xyflow/react'
 import type { PetriEdge } from '@/lib/petri-net'
+import { useDisplaySettings } from '@/components/display-settings'
 
-type PetriEdgeProps = EdgeProps<PetriEdge> & {
-  showLabels: boolean
-}
+type PetriEdgeProps = EdgeProps<PetriEdge>
 
 function PetriEdge({
   id,
@@ -20,8 +19,8 @@ function PetriEdge({
   markerEnd,
   data,
   selected,
-  showLabels,
 }: PetriEdgeProps) {
+  const { showLabels } = useDisplaySettings()
   const weight = data?.weight || 1
   const label = data?.label || ''
   const labelPosition = data?.labelPosition || 'top'
